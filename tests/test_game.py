@@ -49,11 +49,20 @@ class TestBubbleArena(unittest.TestCase):
 
         self.assertGreaterEqual(len(self.sprite_mgr.bubbles), 4)
         self.assertGreaterEqual(len(self.sprite_mgr.giant_bubbles), 4)
-        self.assertEqual(len(self.sprite_mgr.tiles), 10)
+        self.assertGreaterEqual(len(self.sprite_mgr.tiles), 14)
         self.assertIn("shoes", self.sprite_mgr.powerups)
         self.assertIn("candy_blue", self.sprite_mgr.powerups)
         self.assertIn("candy_yellow", self.sprite_mgr.powerups)
+        self.assertIn("candy_purple", self.sprite_mgr.powerups)
         self.assertIn("shield", self.sprite_mgr.powerups)
+        self.assertIn("diamond", self.sprite_mgr.powerups)
+        self.assertIn("ruby", self.sprite_mgr.powerups)
+        self.assertIn("golden_bell", self.sprite_mgr.powerups)
+        self.assertIn("apple", self.sprite_mgr.powerups)
+        self.assertIn("carrot", self.sprite_mgr.powerups)
+        self.assertIn("watermelon", self.sprite_mgr.powerups)
+        self.assertIn("grapes", self.sprite_mgr.powerups)
+        self.assertIn("banana", self.sprite_mgr.powerups)
         self.assertGreaterEqual(len(self.sprite_mgr.flag_frames), 4)
 
     def test_sound_synthesis(self):
@@ -213,7 +222,7 @@ class TestBubbleArena(unittest.TestCase):
         """Verify full GameEngine update flow: bubble shot, opponent trap, and trapped bubble list handling."""
         from engine.game import GameEngine
         engine = GameEngine(is_bot_match=False)
-        engine.start_match()
+        engine.start_match(use_random_map=False)
         
         # Position P0 and P1 near each other
         p0 = engine.players[0]
@@ -234,6 +243,87 @@ class TestBubbleArena(unittest.TestCase):
         engine.update(0.05)
         self.assertGreater(len(engine.trapped_bubbles), 0)
         self.assertTrue(p1.is_trapped)
+
+    def test_chain_bubble_pop_explosion(self):
+        """Verify popping a bubble in a touching cluster explodes all connected bubbles in a chain!"""
+        from engine.game import GameEngine
+        engine = GameEngine(is_bot_match=False)
+        engine.start_match(use_random_map=False)
+
+        # Create a chain of 4 touching bubbles
+        b1 = Bubble(x=100, y=100, direction=1, owner_id=0, owner_team=0)
+        b2 = Bubble(x=120, y=100, direction=1, owner_id=0, owner_team=0)
+        b3 = Bubble(x=140, y=100, direction=1, owner_id=0, owner_team=0)
+        b4 = Bubble(x=160, y=100, direction=1, owner_id=0, owner_team=0)
+
+        for b in (b1, b2, b3, b4):
+            b.is_floating = True
+        engine.bubbles = [b1, b2, b3, b4]
+
+        # Trigger chain pop by Player 0 popping b1
+        p0 = engine.players[0]
+        initial_score = p0.score
+        engine.trigger_chain_pop(b1, popping_player=p0)
+
+        # All 4 bubbles must be popped and removed!
+        self.assertEqual(len(engine.bubbles), 0)
+        # Player must receive chain combo score bonus!
+        self.assertGreater(p0.score, initial_score)
+
+    def test_mega_giant_bubble_30s_candy(self):
+        """Verify purple candy gives 30 seconds of 2x size giant bubble shots."""
+        from constants import POWERUP_PURPLE_CANDY, GIANT_BUBBLE_RADIUS, GIANT_CANDY_DURATION
+        player = Player(player_id=0, spawn_x=100, spawn_y=100, team=0)
+        candy = PowerUp(100, 100, item_type=POWERUP_PURPLE_CANDY)
+        tag, pts = candy.apply_to_player(player)
+
+        # Duration must be 30.0s
+        self.assertEqual(player.giant_buff_timer, GIANT_CANDY_DURATION)
+        self.assertEqual(player.giant_buff_timer, 30.0)
+
+        # Shooting bubble while buffed produces 2x radius bubble
+        spawned = []
+        player.handle_input({"shoot": True}, 0.016, spawned, self.sound_mgr)
+        self.assertEqual(len(spawned), 1)
+        self.assertTrue(spawned[0].is_giant)
+        self.assertEqual(spawned[0].radius, GIANT_BUBBLE_RADIUS)
+        self.assertEqual(spawned[0].radius, 24)
+
+    def test_all_14_levels_and_random_selection(self):
+        """Verify 14 levels exist and load_random_level picks valid random maps."""
+        self.assertGreaterEqual(self.level_mgr.get_level_count(), 14)
+        picked = set()
+        for _ in range(25):
+            idx = self.level_mgr.load_random_level()
+            picked.add(idx)
+            self.assertGreaterEqual(idx, 0)
+            self.assertLess(idx, 14)
+            self.assertGreater(len(self.level_mgr.platforms), 10)
+        # Must pick multiple distinct maps
+        self.assertGreater(len(picked), 1)
+
+    def test_new_bonus_collectibles(self):
+        """Verify diamond, ruby, golden bell, apple, carrot, watermelon, grapes, and banana points."""
+        from constants import (
+            POWERUP_DIAMOND, POWERUP_RUBY, POWERUP_GOLDEN_BELL,
+            POWERUP_WATERMELON, POWERUP_BANANA, POWERUP_GRAPES,
+            POWERUP_APPLE, POWERUP_CARROT
+        )
+        player = Player(player_id=0, spawn_x=100, spawn_y=100, team=0)
+        items_expected = [
+            (POWERUP_DIAMOND, 2500),
+            (POWERUP_RUBY, 1500),
+            (POWERUP_GOLDEN_BELL, 2000),
+            (POWERUP_WATERMELON, 800),
+            (POWERUP_BANANA, 700),
+            (POWERUP_GRAPES, 600),
+            (POWERUP_APPLE, 500),
+            (POWERUP_CARROT, 400),
+        ]
+        for itype, exp_pts in items_expected:
+            pu = PowerUp(100, 100, item_type=itype)
+            tag, pts = pu.apply_to_player(player)
+            self.assertEqual(pts, exp_pts)
 
 if __name__ == "__main__":
     unittest.main()

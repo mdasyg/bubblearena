@@ -64,3 +64,15 @@ class LevelManager:
         new_idx = (self.current_level_idx - 1) % len(self.levels)
         self.load_level(new_idx)
         return new_idx
+
+    def load_random_level(self, exclude_current=True):
+        """Picks and loads a random arena level."""
+        import random
+        count = len(self.levels)
+        if count <= 1:
+            self.load_level(0)
+            return 0
+        choices = [i for i in range(count) if (not exclude_current or i != self.current_level_idx)]
+        picked_idx = random.choice(choices)
+        self.load_level(picked_idx)
+        return picked_idx

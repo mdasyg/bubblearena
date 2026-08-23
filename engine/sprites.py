@@ -227,14 +227,18 @@ class SpriteManager:
             self.bubbles.append(surf)
 
         # Giant Bubbles (36x36)
+        # Giant Bubbles - 2x Size (48x48, radius 22)
         for f in range(4):
-            surf = self._create_surface(36, 36)
-            r = 15 + (1 if f in (1, 3) else 0)
-            center = (18, 18)
-            pygame.draw.circle(surf, (200, 100, 255, 110), center, r)
-            pygame.draw.circle(surf, (245, 200, 255, 230), center, r, width=2)
-            pygame.draw.circle(surf, (255, 255, 255, 250), (center[0] - 6, center[1] - 6), 4)
-            pygame.draw.circle(surf, (255, 255, 255, 200), (center[0] + 6, center[1] + 6), 2)
+            surf = self._create_surface(48, 48)
+            r = 21 + (1 if f in (1, 3) else 0)
+            center = (24, 24)
+            # Translucent purple-magenta glow
+            pygame.draw.circle(surf, (210, 80, 255, 110), center, r)
+            pygame.draw.circle(surf, (250, 210, 255, 240), center, r, width=2)
+            # Big highlight glints
+            pygame.draw.circle(surf, (255, 255, 255, 255), (center[0] - 8, center[1] - 8), 5)
+            pygame.draw.circle(surf, (255, 255, 255, 200), (center[0] + 8, center[1] + 8), 2)
+            pygame.draw.circle(surf, (255, 255, 255, 180), (center[0] - 4, center[1] - 12), 2)
             self.giant_bubbles.append(surf)
 
         # Bubble Popping sequence (4 frames)
@@ -253,8 +257,7 @@ class SpriteManager:
             self.bubble_pop.append(surf)
 
     def _generate_tile_sprites(self):
-        """Generates tiles for 10 distinct level themes with solid and one-way platform variants."""
-        # 10 Level Themes Color Definitions: (Primary, Secondary, Highlight, Trim)
+        """Generates tiles for 14 distinct level themes with solid and one-way platform variants."""
         themes = [
             # 1. Meadow
             {"name": "meadow", "base": (68, 140, 48), "sec": (108, 180, 68), "hi": (164, 236, 76), "dark": (36, 80, 24)},
@@ -276,6 +279,14 @@ class SpriteManager:
             {"name": "candy", "base": (220, 80, 130), "sec": (248, 140, 180), "hi": (255, 220, 235), "dark": (140, 40, 80)},
             # 10. Golden Temple
             {"name": "gold", "base": (180, 130, 24), "sec": (224, 170, 40), "hi": (255, 235, 120), "dark": (100, 70, 12)},
+            # 11. Coral Reef
+            {"name": "coral", "base": (24, 128, 140), "sec": (48, 180, 196), "hi": (248, 140, 170), "dark": (12, 64, 72)},
+            # 12. Haunted Manor
+            {"name": "manor", "base": (40, 32, 60), "sec": (76, 60, 110), "hi": (180, 150, 240), "dark": (20, 16, 32)},
+            # 13. Starry Cosmos
+            {"name": "cosmos", "base": (20, 24, 52), "sec": (140, 50, 160), "hi": (100, 240, 255), "dark": (10, 12, 28)},
+            # 14. Mushroom Grove
+            {"name": "mushroom", "base": (80, 96, 48), "sec": (220, 90, 40), "hi": (255, 240, 200), "dark": (40, 50, 24)},
         ]
 
         for idx, t in enumerate(themes):
@@ -309,18 +320,17 @@ class SpriteManager:
             }
 
     def _generate_powerup_sprites(self):
-        """Generates items and power-ups: Shoes, Candies, Shield, and Fruit."""
+        """Generates power-ups and all 8 collectible bonus fruit/gem items."""
         # 1. Fast Shoes (Red Sneakers)
         surf = self._create_surface(16, 16)
         pygame.draw.rect(surf, COLOR_RED, (2, 6, 10, 5), border_radius=2)
         pygame.draw.polygon(surf, COLOR_RED, [(8, 6), (14, 11), (2, 11)])
-        pygame.draw.rect(surf, COLOR_WHITE, (2, 11, 12, 3), border_radius=1) # white sole
-        pygame.draw.line(surf, COLOR_YELLOW, (5, 8), (9, 8), 1) # laces
+        pygame.draw.rect(surf, COLOR_WHITE, (2, 11, 12, 3), border_radius=1)
+        pygame.draw.line(surf, COLOR_YELLOW, (5, 8), (9, 8), 1)
         self.powerups["shoes"] = surf
 
         # 2. Blue Candy (Long Range)
         surf = self._create_surface(16, 16)
-        # Twisted candy wrapper
         pygame.draw.polygon(surf, COLOR_CYAN, [(1, 4), (5, 8), (1, 12)])
         pygame.draw.polygon(surf, COLOR_CYAN, [(15, 4), (11, 8), (15, 12)])
         pygame.draw.circle(surf, COLOR_BLUE, (8, 8), 5)
@@ -335,11 +345,12 @@ class SpriteManager:
         pygame.draw.circle(surf, COLOR_ORANGE, (8, 8), 2)
         self.powerups["candy_yellow"] = surf
 
-        # 4. Purple Candy (Giant Bubble)
+        # 4. Purple Candy (Mega 2x Giant Bubble - 30s)
         surf = self._create_surface(16, 16)
-        pygame.draw.polygon(surf, COLOR_PINK, [(1, 4), (5, 8), (1, 12)])
-        pygame.draw.polygon(surf, COLOR_PINK, [(15, 4), (11, 8), (15, 12)])
-        pygame.draw.circle(surf, COLOR_PURPLE, (8, 8), 5)
+        pygame.draw.polygon(surf, COLOR_PINK, [(1, 3), (5, 8), (1, 13)])
+        pygame.draw.polygon(surf, COLOR_PINK, [(15, 3), (11, 8), (15, 13)])
+        pygame.draw.circle(surf, COLOR_PURPLE, (8, 8), 6)
+        pygame.draw.circle(surf, (255, 180, 255), (8, 8), 4)
         pygame.draw.circle(surf, COLOR_WHITE, (6, 6), 2)
         self.powerups["candy_purple"] = surf
 
@@ -352,13 +363,84 @@ class SpriteManager:
         pygame.draw.circle(surf, COLOR_WHITE, (8, 7), 2)
         self.powerups["shield"] = surf
 
-        # 6. Fruit Bonus (Apple / Watermelon)
+        # 6. Diamond (Sparkling Gem +2500 pts)
+        surf = self._create_surface(16, 16)
+        # Brilliant cut diamond polygon
+        pygame.draw.polygon(surf, (180, 240, 255), [(4, 4), (12, 4), (15, 7), (8, 14), (1, 7)])
+        pygame.draw.polygon(surf, (240, 250, 255), [(4, 4), (12, 4), (10, 7), (6, 7)])
+        pygame.draw.line(surf, COLOR_WHITE, (8, 4), (8, 14), 1)
+        pygame.draw.line(surf, COLOR_WHITE, (1, 7), (15, 7), 1)
+        pygame.draw.circle(surf, COLOR_WHITE, (5, 6), 1)
+        self.powerups["diamond"] = surf
+
+        # 7. Ruby Gem (+1500 pts)
+        surf = self._create_surface(16, 16)
+        pygame.draw.polygon(surf, (220, 20, 60), [(4, 3), (12, 3), (15, 8), (8, 14), (1, 8)])
+        pygame.draw.polygon(surf, (255, 100, 130), [(5, 4), (11, 4), (9, 7), (7, 7)])
+        pygame.draw.circle(surf, COLOR_WHITE, (6, 5), 1)
+        self.powerups["ruby"] = surf
+
+        # 8. Red Apple (+500 pts)
         surf = self._create_surface(16, 16)
         pygame.draw.circle(surf, COLOR_RED, (8, 9), 5)
-        pygame.draw.rect(surf, COLOR_GREEN, (8, 3, 3, 3)) # leaf
-        pygame.draw.line(surf, COLOR_DARK_GRAY, (8, 4), (8, 6), 1) # stem
-        pygame.draw.circle(surf, COLOR_WHITE, (6, 8), 1) # shine
-        self.powerups["fruit"] = surf
+        pygame.draw.rect(surf, COLOR_GREEN, (8, 3, 3, 3), border_radius=1) # leaf
+        pygame.draw.line(surf, (90, 50, 30), (8, 4), (8, 6), 1) # stem
+        pygame.draw.circle(surf, (255, 180, 180), (6, 8), 1) # highlight
+        self.powerups["apple"] = surf
+
+        # 9. Carrot (+400 pts)
+        surf = self._create_surface(16, 16)
+        # Orange carrot root
+        pygame.draw.polygon(surf, COLOR_ORANGE, [(5, 6), (11, 6), (9, 14), (7, 14)])
+        pygame.draw.line(surf, COLOR_YELLOW, (6, 8), (10, 8), 1)
+        pygame.draw.line(surf, COLOR_YELLOW, (6, 11), (9, 11), 1)
+        # Green leafy carrot top
+        pygame.draw.line(surf, COLOR_GREEN, (8, 6), (5, 2), 2)
+        pygame.draw.line(surf, COLOR_LIME, (8, 6), (8, 1), 2)
+        pygame.draw.line(surf, COLOR_GREEN, (8, 6), (11, 2), 2)
+        self.powerups["carrot"] = surf
+
+        # 10. Watermelon (+800 pts)
+        surf = self._create_surface(16, 16)
+        # Green rind arc
+        pygame.draw.arc(surf, (40, 160, 60), (2, 2, 12, 12), math.pi, 2 * math.pi, 3)
+        # Pink flesh
+        pygame.draw.polygon(surf, (245, 60, 90), [(2, 8), (14, 8), (8, 14)])
+        # Seeds
+        pygame.draw.rect(surf, COLOR_BLACK, (6, 9, 1, 1))
+        pygame.draw.rect(surf, COLOR_BLACK, (10, 9, 1, 1))
+        pygame.draw.rect(surf, COLOR_BLACK, (8, 11, 1, 1))
+        self.powerups["watermelon"] = surf
+
+        # 11. Grapes (+600 pts)
+        surf = self._create_surface(16, 16)
+        pygame.draw.line(surf, (90, 50, 30), (8, 2), (8, 5), 2) # stem
+        pygame.draw.rect(surf, COLOR_GREEN, (9, 2, 3, 2)) # leaf
+        # Grape cluster
+        grape_pos = [(6, 6), (10, 6), (4, 9), (8, 9), (12, 9), (6, 12), (10, 12), (8, 14)]
+        for gx, gy in grape_pos:
+            pygame.draw.circle(surf, (140, 40, 180), (gx, gy), 2)
+            pygame.draw.circle(surf, (200, 120, 240), (gx - 1, gy - 1), 1)
+        self.powerups["grapes"] = surf
+
+        # 12. Golden Bell (+2000 pts)
+        surf = self._create_surface(16, 16)
+        pygame.draw.circle(surf, COLOR_GOLD, (8, 5), 3)
+        pygame.draw.polygon(surf, COLOR_GOLD, [(4, 7), (12, 7), (14, 12), (2, 12)])
+        pygame.draw.rect(surf, COLOR_YELLOW, (3, 12, 10, 2), border_radius=1)
+        pygame.draw.circle(surf, COLOR_ORANGE, (8, 13), 2) # clapper
+        pygame.draw.circle(surf, COLOR_WHITE, (6, 7), 1)
+        self.powerups["golden_bell"] = surf
+
+        # 13. Banana (+700 pts)
+        surf = self._create_surface(16, 16)
+        pygame.draw.arc(surf, COLOR_YELLOW, (2, 3, 12, 10), 0.2, math.pi * 0.9, 3)
+        pygame.draw.rect(surf, (100, 70, 20), (3, 4, 2, 2)) # stem
+        pygame.draw.rect(surf, (100, 70, 20), (12, 10, 2, 2)) # tip
+        self.powerups["banana"] = surf
+
+        # 14. Fruit Fallback (+800 pts)
+        self.powerups["fruit"] = self.powerups["apple"]
 
     def _generate_flag_sprites(self):
         """Generates waving animated CTF flag sprites."""

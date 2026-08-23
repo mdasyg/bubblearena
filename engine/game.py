@@ -4,11 +4,13 @@ engine/game.py - Core game loop, state machine, physics accumulator, and renderi
 import pygame
 import sys
 import random
+import math
 from constants import (
     SCREEN_WIDTH, SCREEN_HEIGHT, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, FPS, TITLE,
     STATE_MENU, STATE_MODE_SELECT, STATE_LEVEL_SELECT, STATE_LOBBY,
     STATE_PLAYING, STATE_PAUSED, STATE_GAMEOVER, STATE_VICTORY, STATE_CONTROLS,
-    MODE_FFA, MODE_TEAM, MODE_CTF, GAME_MODES, PLAYER_COLORS
+    MODE_FFA, MODE_TEAM, MODE_CTF, GAME_MODES, PLAYER_COLORS,
+    COLOR_GOLD, COLOR_RED, COLOR_GREEN
 )
 from engine.sound import SoundManager
 from engine.sprites import SpriteManager
@@ -100,12 +102,15 @@ class GameEngine:
             for p in self.players:
                 p.team = 0 if p.id in (0, 2) else 1
 
-    def start_match(self):
-        """Starts a fresh match on the currently selected level and mode."""
+    def start_match(self, use_random_map=True):
+        """Starts a fresh match on a random or selected level and mode."""
+        if use_random_map:
+            self.level_mgr.load_random_level()
+
         self.bubbles.clear()
         self.trapped_bubbles.clear()
         self.powerups.clear()
-        self.item_spawn_timer = random.uniform(8.0, 14.0)
+        self.item_spawn_timer = random.uniform(6.0, 12.0)
 
         # Reposition players to level spawn points
         for i, p in enumerate(self.players):
@@ -317,13 +322,161 @@ class GameEngine:
 
         self.bubbles.extend(spawned_bubbles)
 
-        # 3. Update Bubbles & Opponent Trapping Check
+    def trigger_chain_pop(self, initial_bubble, popping_player=None):
+        """
+        Triggers a chain reaction explosion when a bubble is popped by a player or expires:
+        Pops all touching/connected bubbles in cascade and awards combo multipliers!
+        """
+        queue = [initial_bubble]
+        popped_bubbles = []
+        popped_trapped = []
+
+        is_team_mode = (self.current_mode_name != MODE_FFA)
+        chain_count = 0
+
+        while queue:
+            current = queue.pop(0)
+            if current in popped_bubbles or current in popped_trapped:
+                continue
+
+            chain_count += 1
+            if isinstance(current, TrappedBubble):
+                popped_trapped.append(current)
+            else:
+                popped_bubbles.append(current)
+
+            # Find all touching / connected bubbles in proximity
+            all_remaining = [b for b in self.bubbles if b not in popped_bubbles and b not in queue]
+            all_remaining_trapped = [tb for tb in self.trapped_bubbles if tb not in popped_trapped and tb not in queue]
+
+            for other in (all_remaining + all_remaining_trapped):
+                dx = current.x - other.x
+                dy = current.y - other.y
+                dist = math.hypot(dx, dy)
+                # Touching threshold: radius sum + contact tolerance margin
+                if dist <= (current.radius + other.radius + 8):
+                    queue.append(other)
+
+        # Process all chained standard bubbles
+        for b in popped_bubbles:
+            b.is_alive = False
+            self.particle_mgr.spawn_pop_burst(b.x, b.y, count=12)
+            self.sound_mgr.play_sfx("pop")
+
+            # Award chain combo points to popping player
+            if popping_player:
+                pts = min(1600, 100 * (2 ** min(chain_count - 1, 4)))
+                popping_player.score += pts
+                if chain_count >= 2:
+                    self.particle_mgr.add_floating_text(f"+{pts} (CHAIN x{chain_count})", b.x, b.y - 12, color=COLOR_GOLD)
+
+            # 35% chance to drop bonus fruits/gems in chain explosion!
+            if random.random() < 0.35:
+                self.powerups.append(PowerUp(b.x, b.y))
+
+        # Process all chained trapped bubbles
+        for tb in popped_trapped:
+            tb.is_alive = False
+            if popping_player:
+                result = tb.check_pop_by_player(popping_player, is_team_mode=is_team_mode)
+                if result:
+                    res_type, points = result
+                    combo_pts = points + (chain_count * 100)
+                    self.game_mode.on_player_popped(popping_player, tb, res_type, combo_pts)
+
+                    if res_type == "KILL":
+                        self.particle_mgr.spawn_pop_burst(tb.x, tb.y, count=18)
+                        self.particle_mgr.add_floating_text(f"+{combo_pts} POP!", tb.x, tb.y - 14, color=COLOR_RED)
+                        self.sound_mgr.play_sfx("pop")
+                        self.sound_mgr.play_sfx("death")
+                        # 70% chance to drop bonus item on kill
+                        if random.random() < 0.70:
+                            self.powerups.append(PowerUp(tb.x, tb.y))
+                    elif res_type == "RESCUE":
+                        self.particle_mgr.spawn_sparkles(tb.x, tb.y, count=14)
+                        self.particle_mgr.add_floating_text(f"RESCUE +{combo_pts}!", tb.x, tb.y - 14, color=COLOR_GREEN)
+                        self.sound_mgr.play_sfx("rescue")
+            else:
+                # Expired or untargeted pop -> free player
+                tb.trapped_player.free_from_bubble(was_rescued=False)
+                self.particle_mgr.spawn_pop_burst(tb.x, tb.y, count=12)
+
+        # Big banner if massive chain explosion!
+        if chain_count >= 3 and popping_player:
+            self.particle_mgr.add_floating_text(f"CHAIN COMBO x{chain_count}!", popping_player.x, popping_player.y - 22, color=COLOR_GOLD)
+            self.sound_mgr.play_sfx("victory")
+
+        # Filter out all popped bubbles from active lists
+        self.bubbles = [b for b in self.bubbles if b not in popped_bubbles]
+        self.trapped_bubbles = [tb for tb in self.trapped_bubbles if tb not in popped_trapped]
+
+    def update(self, dt):
+        """Updates game state, physics, collisions, and network sync."""
+        if self.state != STATE_PLAYING:
+            return
+
+        platforms = self.level_mgr.platforms
+
+        # 1. LAN Network Input Synchronization
+        if self.is_lan_host and self.lan_server:
+            client_inputs = self.lan_server.get_client_inputs()
+            for p_id, acts in client_inputs.items():
+                self.input_handler.set_remote_input(p_id, acts)
+
+        # 2. Player Input & Physics
+        spawned_bubbles = []
+        for p in self.players:
+            if p.is_trapped:
+                # Check struggle inputs
+                actions = self.input_handler.poll_inputs(p.id, is_bot=p.is_bot, bot_action=p.bot_action)
+                if actions.get("shoot") or actions.get("struggle") or actions.get("jump"):
+                    # Find player's trapped bubble
+                    for tb in self.trapped_bubbles:
+                        if tb.trapped_player.id == p.id:
+                            tb.register_struggle()
+                            break
+            else:
+                # Bot AI or Human Input
+                if p.is_bot:
+                    bot_act = p.update_bot_ai(dt, self.players, self.bubbles, self.trapped_bubbles, self.flag)
+                    p.handle_input(bot_act, dt, spawned_bubbles, self.sound_mgr, self.particle_mgr)
+                else:
+                    user_act = self.input_handler.poll_inputs(p.id)
+                    p.handle_input(user_act, dt, spawned_bubbles, self.sound_mgr, self.particle_mgr)
+
+                    # If client connected over LAN, transmit input
+                    if self.is_lan_client and self.lan_client and p.id == self.lan_client.assigned_player_id:
+                        self.lan_client.send_input(user_act)
+
+            p.update(dt, platforms, self.bubbles, self.trapped_bubbles, self.sound_mgr, self.particle_mgr)
+
+        self.bubbles.extend(spawned_bubbles)
+
+        # 3. Update Bubbles & Opponent Trapping / Head-Butt Pop Check
         active_bubbles = []
-        for b in self.bubbles:
+        bubbles_to_pop = []
+
+        for b in list(self.bubbles):
             if not b.update(dt, platforms):
-                # Bubble popped from 30s timeout or wall
-                self.particle_mgr.spawn_pop_burst(b.x, b.y, count=8)
-                self.sound_mgr.play_sfx("pop")
+                # Bubble popped from 30s timeout
+                bubbles_to_pop.append((b, None))
+                continue
+
+            # Check if an active player pops an empty bubble (head-butt from below or star shield contact)
+            popped_by_p = None
+            for p in self.players:
+                if p.is_alive and not p.is_trapped and b.is_floating:
+                    # Head-butt from below (p.vy < 0 and head hitting bubble bottom)
+                    if p.vy < 0 and p.rect.top <= b.rect.bottom and p.rect.colliderect(b.rect):
+                        popped_by_p = p
+                        break
+                    # Star shield invulnerability contact pop
+                    elif p.invulnerable_timer > 0 and p.rect.colliderect(b.rect):
+                        popped_by_p = p
+                        break
+
+            if popped_by_p:
+                bubbles_to_pop.append((b, popped_by_p))
                 continue
 
             # Check collision with other players to trap them
@@ -342,53 +495,44 @@ class GameEngine:
                         trapped_someone = True
                         break
 
-            if not trapped_someone:
+            if not trapped_someone and b not in [bp[0] for bp in bubbles_to_pop]:
                 active_bubbles.append(b)
 
         self.bubbles = active_bubbles
 
-        # 4. Update Trapped Bubbles & Popping / Rescue Check
+        # Trigger chain pops for empty bubbles
+        for b, popper in bubbles_to_pop:
+            if b in self.bubbles:
+                self.trigger_chain_pop(b, popper)
+
+        # 4. Update Trapped Bubbles & Popping / Rescue Check with Chain Reactions
         active_trapped = []
-        for tb in self.trapped_bubbles:
+        trapped_to_pop = []
+
+        for tb in list(self.trapped_bubbles):
             if not tb.update(dt, platforms):
                 # Expired or struggle escaped
-                self.particle_mgr.spawn_pop_burst(tb.x, tb.y, count=12)
-                self.particle_mgr.add_floating_text("FREED!", tb.x, tb.y - 12)
-                self.sound_mgr.play_sfx("pop")
+                trapped_to_pop.append((tb, None))
                 continue
 
             # Check if any active player touches this trapped bubble to pop it
-            is_team_mode = (self.current_mode_name != MODE_FFA)
-            popped = False
-
+            popped_by_player = None
             for p in self.players:
-                if p.is_alive and not p.is_trapped:
-                    result = tb.check_pop_by_player(p, is_team_mode=is_team_mode)
-                    if result:
-                        res_type, points = result
-                        popped = True
-                        self.game_mode.on_player_popped(p, tb, res_type, points)
+                if p.is_alive and not p.is_trapped and tb.rect.colliderect(p.rect):
+                    popped_by_player = p
+                    break
 
-                        if res_type == "KILL":
-                            self.particle_mgr.spawn_pop_burst(tb.x, tb.y, count=18)
-                            self.particle_mgr.add_floating_text(f"+{points} POP!", tb.x, tb.y - 14)
-                            self.sound_mgr.play_sfx("pop")
-                            self.sound_mgr.play_sfx("death")
-
-                            # 50% chance to drop powerup item on kill
-                            if random.random() < 0.6:
-                                self.powerups.append(PowerUp(tb.x, tb.y))
-
-                        elif res_type == "RESCUE":
-                            self.particle_mgr.spawn_sparkles(tb.x, tb.y, count=14)
-                            self.particle_mgr.add_floating_text(f"RESCUE +{points}!", tb.x, tb.y - 14)
-                            self.sound_mgr.play_sfx("rescue")
-                        break
-
-            if not popped:
+            if popped_by_player:
+                trapped_to_pop.append((tb, popped_by_player))
+            else:
                 active_trapped.append(tb)
 
         self.trapped_bubbles = active_trapped
+
+        # Trigger chain pops for trapped bubbles
+        for tb, popper in trapped_to_pop:
+            if tb in self.trapped_bubbles or not tb.is_alive:
+                self.trigger_chain_pop(tb, popper)
 
         # 5. Power-Up Spawning & Collection
         self.item_spawn_timer -= dt

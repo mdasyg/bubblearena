@@ -10,33 +10,40 @@ A fast-paced retro 2D single-screen arcade platform brawler inspired by *Bubble 
    - Jump through platforms from underneath. Land solidly on top.
 2. **Horizontal Bubble Shooting & Trapping:**
    - Shoot bubbles horizontally to trap opponents into floating, swaying bubbles.
-3. **Bubble Riding & Trampoline Jumps:**
+   - **Mega Giant Candy (30s):** Shoot 2x size giant bubbles for 30 seconds with wide capture hitboxes!
+3. **Chain Bubble Popping & Combos:**
+   - When a bubble is popped by a player, **all connected or touching bubbles explode in a cascade!**
+   - Earn escalating Chain Combo multipliers (`x2`, `x3`, `x4+` combo bonuses).
+4. **Bubble Riding & Trampoline Jumps:**
    - Jump on top of any floating bubble to bounce upward and reach higher platform tiers.
-4. **Popping & Team Logic:**
+5. **Popping & Team Logic:**
    - **Opponent Pop:** Eliminates the enemy (+1000 pts) and causes them to respawn after a short delay with an invulnerability shield.
    - **Teammate Rescue (2v2 Mode):** Touch trapped allies to instantly rescue and shield them (+500 pts).
    - **30-Second Lifespan:** Bubbles flash and pop automatically after 30 seconds, freeing trapped players. Button mashing allows escaping early!
-5. **Global 3-Minute Timer & 'Hurry Up!' Alert:**
+6. **Global 3-Minute Timer & 'Hurry Up!' Alert:**
    - 180-second countdown in the arcade HUD.
    - At 30 seconds remaining, triggers a flashing **"HURRY UP!"** banner and accelerated chiptune music tempo.
-6. **Power-Ups & Fruit Drops:**
-   - 👟 **Fast Shoes**: +40% movement speed.
-   - 🍬 **Blue Candy**: Long-distance bubble shot.
-   - 🍭 **Yellow Candy**: Rapid-fire bubbles.
-   - 🔮 **Purple Candy**: Giant bubble.
-   - ⭐ **Star Shield**: Invulnerability shield.
-   - 🍎 **Bonus Fruits**: +800 bonus points.
-7. **10 Handcrafted Retro Arena Levels:**
-   - Level 1: Emerald Meadow
-   - Level 2: Azure Castle
-   - Level 3: Neon Cyber Grid
-   - Level 4: Dungeon Vault
-   - Level 5: Skyward Spire
-   - Level 6: Amethyst Cavern
-   - Level 7: Double Helix
-   - Level 8: Lava Forge
-   - Level 9: Candy Factory
-   - Level 10: Grand Champion Arena
+7. **Power-Ups & Collectible Bonus Fruits/Gems:**
+   - 👟 **Fast Shoes**: +40% movement speed (12s).
+   - 🍬 **Blue Candy**: Long-distance bubble shot (15s).
+   - 🍭 **Yellow Candy**: Rapid-fire bubbles (15s).
+   - 🔮 **Purple Mega Candy**: 2x Giant Bubbles for **30 seconds**!
+   - ⭐ **Star Shield**: Invulnerability shield (6s).
+   - 💎 **Diamond**: +2,500 bonus points!
+   - 💠 **Ruby Gem**: +1,500 bonus points!
+   - 🔔 **Golden Bell**: +2,000 bonus points!
+   - 🍉 **Watermelon**: +800 bonus points!
+   - 🍌 **Banana**: +700 bonus points!
+   - 🍇 **Grapes**: +600 bonus points!
+   - 🍎 **Red Apple**: +500 bonus points!
+   - 🥕 **Carrot**: +400 bonus points!
+8. **14 Handcrafted Retro Arena Levels & Random Map Flow:**
+   - Matches start on a **random map**, cycling to the next random level on rematch!
+   - Level 1: Emerald Meadow | Level 2: Azure Castle | Level 3: Neon Cyber Grid
+   - Level 4: Dungeon Vault | Level 5: Skyward Spire | Level 6: Amethyst Cavern
+   - Level 7: Double Helix | Level 8: Lava Forge | Level 9: Candy Factory
+   - Level 10: Grand Champion Arena | Level 11: Coral Reef | Level 12: Haunted Manor
+   - Level 13: Starry Cosmos | Level 14: Mushroom Grove
 8. **3 Competitive Game Modes:**
    - ⚔️ **Free-For-All (FFA)**: 4-player solo deathmatch.
    - 🤝 **2v2 Team Brawler**: Team Green/Yellow vs Team Blue/Pink with friendly rescues.

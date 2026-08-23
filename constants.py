@@ -31,7 +31,8 @@ BUBBLE_SWAY_FREQUENCY = 2.0    # sway frequency (Hz)
 BUBBLE_LIFESPAN = 30.0         # 30 seconds lifetime before pop / explosion
 BUBBLE_FLASH_TIME = 24.0       # time when bubble starts warning flash
 BUBBLE_RADIUS = 12             # standard bubble visual radius
-GIANT_BUBBLE_RADIUS = 18       # giant candy bubble radius
+GIANT_BUBBLE_RADIUS = 24       # 2x size giant candy bubble radius (twice the size)
+GIANT_CANDY_DURATION = 30.0    # 30 seconds temporary giant bubble bonus
 BUBBLE_FIRE_COOLDOWN = 0.35    # seconds between bubble shots
 RAPID_FIRE_COOLDOWN = 0.16     # rapid candy fire cooldown
 
@@ -138,12 +139,22 @@ DISCOVERY_MAGIC = "BUBBLE_ARENA_DISCOVER"
 DISCOVERY_RESPONSE = "BUBBLE_ARENA_HOST"
 
 # --- PowerUp Types ---
-POWERUP_SHOES = "shoes"          # Fast movement speed
-POWERUP_BLUE_CANDY = "candy_blue"    # Long distance bubble shot
-POWERUP_YELLOW_CANDY = "candy_yellow"# Rapid fire bubbles
-POWERUP_PURPLE_CANDY = "candy_purple"# Giant wide bubble
-POWERUP_SHIELD = "shield"        # Temporary invulnerability
-POWERUP_FRUIT = "fruit"          # Bonus score points (Apple, Melon, Gem)
+POWERUP_SHOES = "shoes"              # Fast movement speed (12s)
+POWERUP_BLUE_CANDY = "candy_blue"    # Long distance bubble shot (15s)
+POWERUP_YELLOW_CANDY = "candy_yellow"# Rapid fire bubbles (15s)
+POWERUP_PURPLE_CANDY = "candy_purple"# Giant 2x bubble candy (30s)
+POWERUP_SHIELD = "shield"            # Temporary invulnerability (6s)
+
+# Bonus Score Collectibles
+POWERUP_DIAMOND = "diamond"          # Sparkling Diamond (+2500 pts)
+POWERUP_RUBY = "ruby"                # Precious Ruby Gem (+1500 pts)
+POWERUP_APPLE = "apple"              # Crisp Red Apple (+500 pts)
+POWERUP_CARROT = "carrot"            # Fresh Crunchy Carrot (+400 pts)
+POWERUP_WATERMELON = "watermelon"    # Juicy Watermelon Slice (+800 pts)
+POWERUP_GRAPES = "grapes"            # Sweet Purple Grapes (+600 pts)
+POWERUP_GOLDEN_BELL = "golden_bell"  # Rare Golden Bell (+2000 pts)
+POWERUP_BANANA = "banana"            # Tropical Banana (+700 pts)
+POWERUP_FRUIT = "fruit"              # Classic Bonus (+800 pts)
 
 # --- Tile Dimension ---
 TILE_SIZE = 16
