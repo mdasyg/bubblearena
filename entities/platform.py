@@ -15,10 +15,12 @@ class Platform:
         """
         Landing resolution for one-way and solid platforms:
         Returns True ONLY if player was above the platform top in the previous frame
-        and is now intersecting the top edge while falling downwards (vy >= 0).
+        and is now intersecting the top edge while falling downwards (vy >= 0),
+        with the player's feet center supported by the platform.
         """
         if player_vy >= 0 and prev_bottom <= self.rect.top + 6 and player_rect.bottom >= self.rect.top:
-            if player_rect.right > self.rect.left + 2 and player_rect.left < self.rect.right - 2:
+            feet_center = player_rect.centerx
+            if (self.rect.left - 2) <= feet_center <= (self.rect.right + 2):
                 return True
         return False
 

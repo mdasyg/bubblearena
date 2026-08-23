@@ -239,6 +239,8 @@ class TestBubbleArena(unittest.TestCase):
         p1._update_rect()
         p0.invulnerable_timer = 0
         p1.invulnerable_timer = 0
+        p0.shoot_cooldown = 0.0
+        engine.bubbles.clear()
         
         # P0 shoots bubble towards P1
         p0.facing = 1

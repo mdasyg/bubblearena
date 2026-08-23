@@ -260,7 +260,7 @@ class Player:
             elif self.vy < 0 and not plat.is_oneway:
                 # Rising upward: check bumping head into solid ceiling block from below
                 if prev_top >= plat.rect.bottom - 8 and self.rect.top <= plat.rect.bottom:
-                    if self.rect.right > plat.rect.left + 2 and self.rect.left < plat.rect.right - 2:
+                    if (plat.rect.left - 2) <= self.rect.centerx <= (plat.rect.right + 2):
                         self.rect.top = plat.rect.bottom
                         self.y = self.rect.centery
                         self.vy = 0.0
