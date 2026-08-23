@@ -114,6 +114,24 @@ class TestBubbleArena(unittest.TestCase):
         player.handle_input({"jump": True}, 0.016, [], self.sound_mgr)
         self.assertLess(player.vy, 0)
 
+    def test_player_jump_into_ceiling_no_stick(self):
+        """Verify player jumping all the way into top ceiling does not stick and falls back down."""
+        self.level_mgr.load_level(0)
+        player = Player(player_id=1, spawn_x=40, spawn_y=40, team=1)
+        player.vy = -300.0  # powerful jump into ceiling
+
+        # Update frame hitting ceiling
+        player.update(0.1, self.level_mgr.platforms, [], [])
+        # Player rect top must be >= 16 (below ceiling row 0)
+        self.assertGreaterEqual(player.rect.top, 16)
+        # Player must NOT be marked grounded on the ceiling!
+        self.assertFalse(player.is_grounded)
+
+        # In next frames, gravity pulls player down immediately
+        player.update(0.1, self.level_mgr.platforms, [], [])
+        self.assertGreater(player.vy, 0) # Falling downwards!
+        self.assertGreater(player.y, 24) # Moving away from ceiling!
+
     def test_bubble_riding_and_trampoline_bounce(self):
         """Verify player landing on a floating bubble triggers a trampoline bounce."""
         player = Player(player_id=0, spawn_x=100, spawn_y=80, team=0)

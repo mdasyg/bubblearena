@@ -208,13 +208,13 @@ class Player:
         self.x += self.vx * dt
         self._update_rect()
 
-        # Enforce arena screen horizontal boundaries
-        if self.rect.left < 8:
-            self.rect.left = 8
+        # Enforce arena screen horizontal boundaries (inside border walls)
+        if self.rect.left < 16:
+            self.rect.left = 16
             self.x = self.rect.centerx
             self.vx = 0.0
-        elif self.rect.right > VIRTUAL_WIDTH - 8:
-            self.rect.right = VIRTUAL_WIDTH - 8
+        elif self.rect.right > VIRTUAL_WIDTH - 16:
+            self.rect.right = VIRTUAL_WIDTH - 16
             self.x = self.rect.centerx
             self.vx = 0.0
 
@@ -231,40 +231,41 @@ class Player:
 
         # --- 3. Vertical Movement & Platform / Bubble Collisions ---
         prev_bottom = self.rect.bottom
+        prev_top = self.rect.top
         self.y += self.vy * dt
         self._update_rect()
         self.is_grounded = False
 
         # One-way & solid platform collisions
         for plat in platforms:
-            if plat.check_player_landing(prev_bottom, self.rect, self.vy):
-                self.rect.bottom = plat.rect.top
-                self.y = self.rect.centery
-                self.vy = 0.0
-                self.is_grounded = True
-                break
-            elif not plat.is_oneway and plat.rect.colliderect(self.rect):
-                # Solid block head bump from below
-                if self.vy < 0 and self.rect.top < plat.rect.bottom:
-                    self.rect.top = plat.rect.bottom
-                    self.y = self.rect.centery
-                    self.vy = 0.0
-                elif self.vy > 0 and self.rect.bottom > plat.rect.top:
+            if self.vy >= 0:
+                # Falling downward: check landing on top of platform
+                if plat.check_player_landing(prev_bottom, self.rect, self.vy):
                     self.rect.bottom = plat.rect.top
                     self.y = self.rect.centery
                     self.vy = 0.0
                     self.is_grounded = True
+                    break
+            elif self.vy < 0 and not plat.is_oneway:
+                # Rising upward: check bumping head into solid ceiling block from below
+                if prev_top >= plat.rect.bottom - 8 and self.rect.top <= plat.rect.bottom:
+                    if self.rect.right > plat.rect.left + 2 and self.rect.left < plat.rect.right - 2:
+                        self.rect.top = plat.rect.bottom
+                        self.y = self.rect.centery
+                        self.vy = 0.0
+                        break
 
-        # Enforce screen vertical boundaries
-        if self.rect.bottom >= VIRTUAL_HEIGHT - 8:
-            self.rect.bottom = VIRTUAL_HEIGHT - 8
+        # Enforce screen vertical boundaries (below HUD/ceiling row 0 and above floor row 19)
+        if self.rect.top < 16:
+            self.rect.top = 16
+            self.y = self.rect.centery
+            if self.vy < 0:
+                self.vy = 0.0
+        elif self.rect.bottom >= VIRTUAL_HEIGHT - 16:
+            self.rect.bottom = VIRTUAL_HEIGHT - 16
             self.y = self.rect.centery
             self.vy = 0.0
             self.is_grounded = True
-        elif self.rect.top <= 8:
-            self.rect.top = 8
-            self.y = self.rect.centery
-            self.vy = 0.0
 
         # --- 4. Bubble Riding & Trampoline Jumping ---
         # When falling or jumping on top of any floating bubble, bounce upward!
