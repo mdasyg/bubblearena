@@ -1,0 +1,40 @@
+"""
+modes/ffa_mode.py - Solo Free-For-All 4-player deathmatch mode.
+"""
+from modes.base_mode import BaseGameMode
+from constants import MODE_FFA
+
+class FFAMode(BaseGameMode):
+    """4 individual players, every other player is an opponent."""
+    def __init__(self, score_limit=10000):
+        super().__init__(MODE_FFA)
+        self.score_limit = score_limit
+
+    def on_player_popped(self, popping_player, trapped_bubble, result_type, points):
+        if result_type == "KILL":
+            popping_player.kills += 1
+            popping_player.score += points
+            # Check score limit early win
+            if popping_player.score >= self.score_limit:
+                self.is_match_over = True
+                self.winner_info = {
+                    "text": f"{popping_player.name} WINS!",
+                    "player_id": popping_player.id,
+                    "team": None,
+                    "score": popping_player.score
+                }
+
+    def evaluate_winner(self, players):
+        if not players:
+            self.winner_info = {"text": "NO CONTEST", "player_id": None}
+            return
+
+        sorted_players = sorted(players, key=lambda p: (p.score, p.kills, -p.deaths), reverse=True)
+        winner = sorted_players[0]
+        self.winner_info = {
+            "text": f"{winner.name} WINS!",
+            "player_id": winner.id,
+            "team": None,
+            "score": winner.score,
+            "kills": winner.kills
+        }
