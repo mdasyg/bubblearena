@@ -4,3 +4,5 @@ __pycache__/
 *.pyd
 .system_generated/
 *.log
+build/
+dist/
