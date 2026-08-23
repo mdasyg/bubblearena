@@ -31,6 +31,7 @@ class LevelManager:
         self.platforms.clear()
         map_grid = lvl_data["map"]
 
+        # First pass: build platforms
         for row_idx, row in enumerate(map_grid):
             for col_idx, char in enumerate(row):
                 x = col_idx * TILE_SIZE
@@ -42,16 +43,38 @@ class LevelManager:
                 elif char == '=':
                     # One-way platform
                     self.platforms.append(Platform(x, y, TILE_SIZE, TILE_SIZE, is_oneway=True, theme_id=self.current_theme))
-                elif char == '1':
-                    self.spawn_points[0] = (x + TILE_SIZE // 2, y + TILE_SIZE // 2)
-                elif char == '2':
-                    self.spawn_points[1] = (x + TILE_SIZE // 2, y + TILE_SIZE // 2)
-                elif char == '3':
-                    self.spawn_points[2] = (x + TILE_SIZE // 2, y + TILE_SIZE // 2)
-                elif char == '4':
-                    self.spawn_points[3] = (x + TILE_SIZE // 2, y + TILE_SIZE // 2)
+
+        # Second pass: calculate safe platform-surface spawn points for players and flag
+        for row_idx, row in enumerate(map_grid):
+            for col_idx, char in enumerate(row):
+                x = col_idx * TILE_SIZE
+                y = row_idx * TILE_SIZE
+
+                if char in ('1', '2', '3', '4'):
+                    p_id = int(char) - 1
+                    spawn_x = x + TILE_SIZE // 2
+                    # Find the nearest platform below this spawn tile
+                    found_plat_y = None
+                    for check_row in range(row_idx, len(map_grid)):
+                        if map_grid[check_row][col_idx] in ('=', '#'):
+                            found_plat_y = check_row * TILE_SIZE - 8
+                            break
+                    spawn_y = found_plat_y if found_plat_y is not None else (y + TILE_SIZE // 2)
+                    self.spawn_points[p_id] = (spawn_x, spawn_y)
                 elif char == 'F':
                     self.flag_spawn = (x + TILE_SIZE // 2, y + TILE_SIZE // 2)
+
+    def get_random_platform_spawn(self):
+        """Returns a safe (x, y) standing location directly on top of a level platform."""
+        import random
+        walkable = [
+            p for p in self.platforms 
+            if (p.is_oneway or p.rect.top >= 32) and p.rect.top <= VIRTUAL_HEIGHT - 32
+        ]
+        if walkable:
+            plat = random.choice(walkable)
+            return (plat.rect.centerx, plat.rect.top - 8)
+        return (VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT // 2)
 
     def next_level(self):
         """Advances to the next level."""

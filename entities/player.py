@@ -81,6 +81,7 @@ class Player:
         self.vy = 0.0
         self.is_alive = True
         self.is_trapped = False
+        self.is_grounded = True
         self.respawn_timer = 0.0
         self.invulnerable_timer = INVULNERABLE_DURATION
         self.speed_buff_timer = 0.0
@@ -169,7 +170,7 @@ class Player:
             if sound_mgr:
                 sound_mgr.play_sfx("shoot")
 
-    def update(self, dt, platforms, bubbles, trapped_bubbles, sound_mgr=None, particle_mgr=None):
+    def update(self, dt, platforms, bubbles, trapped_bubbles, sound_mgr=None, particle_mgr=None, level_mgr=None):
         """Updates physics, platform collisions, bubble riding, and timers."""
         # Timers
         if self.invulnerable_timer > 0:
@@ -191,7 +192,12 @@ class Player:
         if not self.is_alive:
             self.respawn_timer -= dt
             if self.respawn_timer <= 0:
-                self.reset_for_round(self.spawn_x, self.spawn_y)
+                if level_mgr:
+                    rx, ry = level_mgr.get_random_platform_spawn()
+                    self.reset_for_round(rx, ry)
+                else:
+                    self.reset_for_round(self.spawn_x, self.spawn_y)
+                self.is_grounded = True
                 if particle_mgr:
                     particle_mgr.spawn_sparkles(self.x, self.y, COLOR_GOLD, count=12)
             return

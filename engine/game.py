@@ -448,7 +448,7 @@ class GameEngine:
                     if self.is_lan_client and self.lan_client and p.id == self.lan_client.assigned_player_id:
                         self.lan_client.send_input(user_act)
 
-            p.update(dt, platforms, self.bubbles, self.trapped_bubbles, self.sound_mgr, self.particle_mgr)
+            p.update(dt, platforms, self.bubbles, self.trapped_bubbles, self.sound_mgr, self.particle_mgr, level_mgr=self.level_mgr)
 
         self.bubbles.extend(spawned_bubbles)
 
