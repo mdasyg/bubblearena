@@ -48,6 +48,7 @@ class Player:
         # Shooting variables
         self.shoot_cooldown = 0.0
         self.shoot_anim_timer = 0.0
+        self.bubble_ride_timer = 0.0
 
         # Power-up buff timers
         self.speed_buff_timer = 0.0
@@ -84,6 +85,7 @@ class Player:
         self.is_grounded = True
         self.respawn_timer = 0.0
         self.invulnerable_timer = INVULNERABLE_DURATION
+        self.bubble_ride_timer = 0.0
         self.speed_buff_timer = 0.0
         self.range_buff_timer = 0.0
         self.rapid_buff_timer = 0.0
@@ -187,10 +189,13 @@ class Player:
             self.shoot_cooldown = max(0.0, self.shoot_cooldown - dt)
         if self.shoot_anim_timer > 0:
             self.shoot_anim_timer = max(0.0, self.shoot_anim_timer - dt)
+        if self.bubble_ride_timer > 0:
+            self.bubble_ride_timer = max(0.0, self.bubble_ride_timer - dt)
 
         # Handle respawn countdown if dead
         if not self.is_alive:
             self.respawn_timer -= dt
+            self._update_animation(dt)
             if self.respawn_timer <= 0:
                 if level_mgr:
                     rx, ry = level_mgr.get_random_platform_spawn()
@@ -284,6 +289,7 @@ class Player:
                     self.y = self.rect.centery
                     self.vy = BUBBLE_BOUNCE_SPEED  # Trampoline bounce!
                     self.is_grounded = False
+                    self.bubble_ride_timer = 0.35
                     if sound_mgr:
                         sound_mgr.play_sfx("bounce")
                     if particle_mgr:
@@ -299,20 +305,32 @@ class Player:
 
     def _update_animation(self, dt):
         self.anim_timer += dt
-        if self.shoot_anim_timer > 0:
+        if not self.is_alive:
+            self.anim_state = "pop_death"
+            frame_interval = 0.15
+        elif self.is_trapped:
+            self.anim_state = "trapped"
+            frame_interval = 0.20
+        elif self.shoot_anim_timer > 0:
             self.anim_state = "shoot"
+            frame_interval = 0.04
+        elif self.bubble_ride_timer > 0:
+            self.anim_state = "bubble_ride"
+            frame_interval = 0.08
         elif not self.is_grounded:
             self.anim_state = "jump" if self.vy < 0 else "fall"
+            frame_interval = 0.08
         elif abs(self.vx) > 10.0:
             self.anim_state = "walk"
+            frame_interval = 0.08
         else:
             self.anim_state = "idle"
+            frame_interval = 0.16
 
         # Frame advancement
-        frame_interval = 0.10 if self.anim_state == "walk" else 0.20
         if self.anim_timer >= frame_interval:
             self.anim_timer = 0.0
-            self.anim_frame = (self.anim_frame + 1) % 4
+            self.anim_frame += 1
 
     def update_bot_ai(self, dt, all_players, bubbles, trapped_bubbles, flag=None):
         """Intelligent retro arcade bot logic."""
@@ -372,9 +390,11 @@ class Player:
         return self.bot_action
 
     def draw(self, surface, sprite_manager):
-        """Renders the player character sprite with facing flip and invulnerability flash."""
+        """Renders the player character sprite with facing flip, invulnerability flash, and smooth alignments."""
         if not self.is_alive:
-            return
+            # Render pop death animation during first 1.2s of death
+            if self.respawn_timer < (RESPAWN_DELAY - 1.2):
+                return
 
         # Invulnerability flashing
         if self.invulnerable_timer > 0 and (int(self.invulnerable_timer * 12) % 2 == 0):
@@ -382,8 +402,15 @@ class Player:
             return
 
         player_sprites = sprite_manager.players.get(self.id, sprite_manager.players[0])
-        frames = player_sprites.get(self.anim_state, player_sprites["idle"])
-        frame_idx = self.anim_frame % len(frames)
+        frames = player_sprites.get(self.anim_state, player_sprites.get("idle", []))
+        if not frames:
+            return
+
+        if self.anim_state == "pop_death":
+            frame_idx = min(self.anim_frame, len(frames) - 1)
+        else:
+            frame_idx = self.anim_frame % len(frames)
+
         frame = frames[frame_idx]
 
         # Flip horizontally if facing left
@@ -391,7 +418,11 @@ class Player:
             frame = pygame.transform.flip(frame, True, False)
 
         draw_x = int(self.x - frame.get_width() // 2)
-        draw_y = int(self.y - frame.get_height() // 2)
+        if self.is_trapped:
+            draw_y = int(self.y - frame.get_height() // 2)
+        else:
+            draw_y = int(self.rect.bottom - frame.get_height())
+
         surface.blit(frame, (draw_x, draw_y))
 
         # Speed buff indicator (sparkle trail)

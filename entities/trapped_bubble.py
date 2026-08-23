@@ -117,8 +117,8 @@ class TrappedBubble:
     def draw(self, surface, sprite_manager):
         """Draws the trapped bubble containing the animated squished player sprite."""
         player_dict = sprite_manager.players.get(self.trapped_player.id, sprite_manager.players[0])
-        frames = player_dict["trapped"]
-        frame = frames[self.anim_frame]
+        frames = player_dict.get("trapped", player_dict["idle"])
+        frame = frames[self.anim_frame % len(frames)]
 
         pos = (int(self.x - frame.get_width() // 2), int(self.y - frame.get_height() // 2))
 

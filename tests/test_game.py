@@ -229,8 +229,14 @@ class TestBubbleArena(unittest.TestCase):
         p1 = engine.players[1]
         p0.x = 100
         p0.y = 100
+        p0.is_grounded = True
+        p0.vy = 0.0
+        p0._update_rect()
         p1.x = 120
         p1.y = 100
+        p1.is_grounded = True
+        p1.vy = 0.0
+        p1._update_rect()
         p0.invulnerable_timer = 0
         p1.invulnerable_timer = 0
         

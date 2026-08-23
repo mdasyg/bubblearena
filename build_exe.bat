@@ -13,7 +13,7 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo.
 echo [1/2] Building standalone BubbleArena.exe...
-pyinstaller --noconfirm --clean --onefile --name "BubbleArena" --collect-all pygame main.py
+pyinstaller --noconfirm --clean --onefile --name "BubbleArena" --add-data "assets;assets" --add-data "Animation;Animation" --collect-all pygame main.py
 
 if %ERRORLEVEL% EQU 0 (
     echo.

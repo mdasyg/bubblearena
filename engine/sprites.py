@@ -39,8 +39,42 @@ class SpriteManager:
         return surf
 
     def _generate_player_sprites(self):
-        """Generates pixel art frames for 4 players across all states."""
-        for p_idx, color_cfg in enumerate(PLAYER_COLORS):
+        """Loads sprite animations from extracted sprite sheets or builds procedural fallback."""
+        import os
+        import sys
+
+        base_res_dir = getattr(sys, '_MEIPASS', os.path.abspath("."))
+
+        # Attempt to load custom sprite sheet animations
+        for p_idx in range(4):
+            p_dir = os.path.join(base_res_dir, "assets", "sprites", f"player_{p_idx}")
+            if not os.path.exists(p_dir):
+                p_dir = os.path.join(os.path.abspath("."), "assets", "sprites", f"player_{p_idx}")
+
+            if os.path.exists(p_dir):
+                p_dict = {}
+                states = ["idle", "walk", "jump", "fall", "shoot", "bubble_ride", "trapped", "escape", "pop_death", "victory"]
+                for state in states:
+                    s_dir = os.path.join(p_dir, state)
+                    frames = []
+                    if os.path.exists(s_dir):
+                        files = sorted([f for f in os.listdir(s_dir) if f.endswith(".png")],
+                                       key=lambda x: int(os.path.splitext(x)[0]) if os.path.splitext(x)[0].isdigit() else x)
+                        for f in files:
+                            try:
+                                img = pygame.image.load(os.path.join(s_dir, f)).convert_alpha()
+                                frames.append(img)
+                            except Exception:
+                                pass
+                    p_dict[state] = frames
+                
+                # Check if we loaded valid frames
+                if len(p_dict.get("idle", [])) > 0 and len(p_dict.get("walk", [])) > 0:
+                    self.players[p_idx] = p_dict
+                    continue
+
+            # Procedural fallback for this player
+            color_cfg = PLAYER_COLORS[p_idx]
             main_col = color_cfg["main"]
             accent_col = color_cfg["accent"]
             belly_col = color_cfg["belly"]
@@ -53,7 +87,9 @@ class SpriteManager:
                 "jump": [],
                 "fall": [],
                 "shoot": [],
+                "bubble_ride": [],
                 "trapped": [],
+                "escape": [],
                 "pop_death": [],
                 "victory": []
             }
