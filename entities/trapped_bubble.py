@@ -6,7 +6,7 @@ import math
 import random
 from constants import (
     BUBBLE_FLOAT_SPEED, BUBBLE_SWAY_AMPLITUDE, BUBBLE_SWAY_FREQUENCY,
-    BUBBLE_LIFESPAN, BUBBLE_FLASH_TIME, VIRTUAL_WIDTH, STRUGGLE_ESCAPE_PRESSES
+    BUBBLE_LIFESPAN, BUBBLE_FLASH_TIME, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, STRUGGLE_ESCAPE_PRESSES
 )
 
 class TrappedBubble:
@@ -61,22 +61,30 @@ class TrappedBubble:
         sway_offset = math.sin(self.age * BUBBLE_SWAY_FREQUENCY * math.pi + self.sway_phase) * BUBBLE_SWAY_AMPLITUDE
         self.x = self.origin_x + sway_offset
 
-        # Boundary checks
-        if self.x < self.radius + 8:
-            self.x = self.radius + 8
-            self.origin_x = self.x
-        elif self.x > VIRTUAL_WIDTH - self.radius - 8:
-            self.x = VIRTUAL_WIDTH - self.radius - 8
-            self.origin_x = self.x
+        # Strict arena boundary limits (outer 16px brick border + visual radius)
+        min_x = 16 + self.radius
+        max_x = VIRTUAL_WIDTH - 16 - self.radius
+        min_y = 16 + self.radius + 2
+        max_y = VIRTUAL_HEIGHT - 16 - self.radius
 
-        if self.y < self.radius + 18:
-            self.y = self.radius + 18
+        if self.x < min_x:
+            self.x = min_x
+            self.origin_x = min_x
+        elif self.x > max_x:
+            self.x = max_x
+            self.origin_x = max_x
+
+        if self.y < min_y:
+            self.y = min_y
+        elif self.y > max_y:
+            self.y = max_y
 
         self._update_rect()
 
         # Keep trapped player aligned with bubble
         self.trapped_player.x = self.x
         self.trapped_player.y = self.y
+        self.trapped_player._update_rect()
 
         return self.is_alive
 

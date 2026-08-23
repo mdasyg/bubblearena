@@ -53,11 +53,31 @@ class Bubble:
             self.is_alive = False
             return False
 
+        # Strict arena boundary limits (outer 16px brick border + visual radius)
+        min_x = 16 + self.radius
+        max_x = VIRTUAL_WIDTH - 16 - self.radius
+        min_y = 16 + self.radius + 2
+        max_y = VIRTUAL_HEIGHT - 16 - self.radius
+
         if not self.is_floating:
             # Phase 1: Rapid horizontal burst
             move_step = self.vx * dt
             self.x += move_step
             self.distance_traveled += abs(move_step)
+
+            # Enforce horizontal border collision
+            if self.x <= min_x:
+                self.x = min_x
+                self.origin_x = min_x
+                self.is_floating = True
+                self.vx = 0.0
+                self.vy = BUBBLE_FLOAT_SPEED
+            elif self.x >= max_x:
+                self.x = max_x
+                self.origin_x = max_x
+                self.is_floating = True
+                self.vx = 0.0
+                self.vy = BUBBLE_FLOAT_SPEED
 
             # Check if reached max travel distance
             if self.distance_traveled >= self.max_distance:
@@ -66,7 +86,7 @@ class Bubble:
                 self.vx = 0.0
                 self.vy = BUBBLE_FLOAT_SPEED
 
-            # Horizontal solid collision check
+            # Horizontal solid platform collision check
             self._update_rect()
             for plat in platforms:
                 if not plat.is_oneway and plat.rect.colliderect(self.rect):
@@ -85,13 +105,13 @@ class Bubble:
             sway_offset = math.sin(self.age * BUBBLE_SWAY_FREQUENCY * math.pi + self.sway_phase) * BUBBLE_SWAY_AMPLITUDE
             self.x = self.origin_x + sway_offset
 
-            # Keep inside horizontal bounds or screen wrap
-            if self.x < self.radius + 8:
-                self.x = self.radius + 8
-                self.origin_x = self.x
-            elif self.x > VIRTUAL_WIDTH - self.radius - 8:
-                self.x = VIRTUAL_WIDTH - self.radius - 8
-                self.origin_x = self.x
+            # Keep strictly inside horizontal brick borders
+            if self.x < min_x:
+                self.x = min_x
+                self.origin_x = min_x
+            elif self.x > max_x:
+                self.x = max_x
+                self.origin_x = max_x
 
             # Upward ceiling / platform collision (does not penetrate solid ceilings, glides around)
             self._update_rect()
@@ -104,9 +124,12 @@ class Bubble:
                         self.origin_x += (20.0 * dt * self.direction)
                         break
 
-            # Top screen boundary (stop at top or gently float)
-            if self.y < self.radius + 18:
-                self.y = self.radius + 18
+            # Top screen boundary (stop at top row 0 border / HUD)
+            if self.y < min_y:
+                self.y = min_y
+
+            if self.y > max_y:
+                self.y = max_y
 
         self._update_rect()
         return self.is_alive

@@ -227,13 +227,13 @@ class TestBubbleArena(unittest.TestCase):
         # Position P0 and P1 near each other
         p0 = engine.players[0]
         p1 = engine.players[1]
-        p0.x = 100
-        p0.y = 100
+        p0.x = 60
+        p0.y = 280
         p0.is_grounded = True
         p0.vy = 0.0
         p0._update_rect()
         p1.x = 120
-        p1.y = 100
+        p1.y = 280
         p1.is_grounded = True
         p1.vy = 0.0
         p1._update_rect()
@@ -247,8 +247,8 @@ class TestBubbleArena(unittest.TestCase):
         p0.handle_input({"shoot": True}, 0.016, engine.bubbles, engine.sound_mgr)
         self.assertGreater(len(engine.bubbles), 0)
         
-        # Engine updates -> Bubble hits P1 -> creates TrappedBubble without error!
-        engine.update(0.05)
+        # Engine updates -> Bubble travels and hits P1 -> creates TrappedBubble without error!
+        engine.update(0.20)
         self.assertGreater(len(engine.trapped_bubbles), 0)
         self.assertTrue(p1.is_trapped)
 

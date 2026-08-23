@@ -45,8 +45,11 @@ class InputHandler:
         # 1. Keyboard Polling
         keys = pygame.key.get_pressed()
         keymap = LOCAL_KEY_MAPPINGS.get(player_id, {})
-        for act, key_code in keymap.items():
-            if key_code is not None and keys[key_code]:
+        for act, key_codes in keymap.items():
+            if isinstance(key_codes, (list, tuple)):
+                if any(keys[kc] for kc in key_codes if kc is not None):
+                    actions[act] = True
+            elif key_codes is not None and keys[key_codes]:
                 actions[act] = True
 
         # 2. Gamepad Polling (if player has an assigned joystick)

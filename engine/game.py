@@ -539,7 +539,7 @@ class GameEngine:
         if self.item_spawn_timer <= 0.0:
             self.item_spawn_timer = random.uniform(10.0, 18.0)
             rx = random.uniform(50, VIRTUAL_WIDTH - 50)
-            ry = 40
+            ry = random.uniform(60.0, 120.0)
             self.powerups.append(PowerUp(rx, ry))
 
         active_powerups = []

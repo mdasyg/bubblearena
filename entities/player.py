@@ -38,6 +38,8 @@ class Player:
         self.facing = 1  # 1 = Right, -1 = Left
         self.is_grounded = False
         self.can_double_jump = False
+        self.jump_buffer_timer = 0.0
+        self.coyote_timer = 0.0
 
         # States & Lifecycle
         self.is_alive = True
@@ -141,14 +143,18 @@ class Player:
             elif self.vx < 0:
                 self.vx = min(0.0, self.vx + fric * dt)
 
-        # Jump
-        if inputs.get("jump") and self.is_grounded:
-            self.vy = PLAYER_JUMP_SPEED
-            self.is_grounded = False
-            if sound_mgr:
-                sound_mgr.play_sfx("jump")
-            if particle_mgr:
-                particle_mgr.spawn_jump_dust(self.x, self.rect.bottom)
+        # Jump (immediate if grounded, otherwise buffered)
+        if inputs.get("jump"):
+            self.jump_buffer_timer = 0.14
+            if self.is_grounded or self.coyote_timer > 0.0:
+                self.vy = PLAYER_JUMP_SPEED
+                self.is_grounded = False
+                self.coyote_timer = 0.0
+                self.jump_buffer_timer = 0.0
+                if sound_mgr:
+                    sound_mgr.play_sfx("jump")
+                if particle_mgr:
+                    particle_mgr.spawn_jump_dust(self.x, self.rect.bottom)
 
         # Shoot Bubble
         if inputs.get("shoot") and self.shoot_cooldown <= 0.0:
@@ -212,6 +218,25 @@ class Player:
             self._update_rect()
             return
 
+        # --- 0. Jump Buffering & Coyote Grace Execution ---
+        if self.jump_buffer_timer > 0.0:
+            self.jump_buffer_timer = max(0.0, self.jump_buffer_timer - dt)
+            if self.is_grounded or self.coyote_timer > 0.0:
+                self.vy = PLAYER_JUMP_SPEED
+                self.is_grounded = False
+                self.coyote_timer = 0.0
+                self.jump_buffer_timer = 0.0
+                if sound_mgr:
+                    sound_mgr.play_sfx("jump")
+                if particle_mgr:
+                    particle_mgr.spawn_jump_dust(self.x, self.rect.bottom)
+
+        # Update coyote timer when falling off a ledge
+        if self.is_grounded:
+            self.coyote_timer = 0.10
+        elif self.coyote_timer > 0.0:
+            self.coyote_timer = max(0.0, self.coyote_timer - dt)
+
         # --- 1. Apply Gravity ---
         self.vy = min(MAX_FALL_SPEED, self.vy + GRAVITY * dt)
 
@@ -219,15 +244,16 @@ class Player:
         self.x += self.vx * dt
         self._update_rect()
 
-        # Enforce arena screen horizontal boundaries (inside border walls)
-        if self.rect.left < 16:
-            self.rect.left = 16
+        # Enforce arena screen horizontal boundaries (inside 16px border walls)
+        # Hitbox width is 14, visual sprite width is 24 (12px on each side of self.x).
+        if self.rect.left < 18:
+            self.rect.left = 18
             self.x = self.rect.centerx
-            self.vx = 0.0
-        elif self.rect.right > VIRTUAL_WIDTH - 16:
-            self.rect.right = VIRTUAL_WIDTH - 16
+            self.vx = max(0.0, self.vx)
+        elif self.rect.right > VIRTUAL_WIDTH - 18:
+            self.rect.right = VIRTUAL_WIDTH - 18
             self.x = self.rect.centerx
-            self.vx = 0.0
+            self.vx = min(0.0, self.vx)
 
         for plat in platforms:
             if not plat.is_oneway and plat.rect.colliderect(self.rect):
@@ -266,9 +292,9 @@ class Player:
                         self.vy = 0.0
                         break
 
-        # Enforce screen vertical boundaries (below HUD/ceiling row 0 and above floor row 19)
-        if self.rect.top < 16:
-            self.rect.top = 16
+        # Enforce screen vertical boundaries (below HUD/ceiling row 0 at y=16 and above floor row 19 at y=304)
+        if self.rect.top < 20:
+            self.rect.top = 20
             self.y = self.rect.centery
             if self.vy < 0:
                 self.vy = 0.0

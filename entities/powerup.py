@@ -9,7 +9,8 @@ from constants import (
     POWERUP_PURPLE_CANDY, POWERUP_SHIELD, POWERUP_DIAMOND,
     POWERUP_RUBY, POWERUP_APPLE, POWERUP_CARROT, POWERUP_WATERMELON,
     POWERUP_GRAPES, POWERUP_GOLDEN_BELL, POWERUP_BANANA, POWERUP_FRUIT,
-    GIANT_CANDY_DURATION, GRAVITY, MAX_FALL_SPEED, TILE_SIZE
+    GIANT_CANDY_DURATION, GRAVITY, MAX_FALL_SPEED, TILE_SIZE,
+    VIRTUAL_WIDTH, VIRTUAL_HEIGHT
 )
 
 POWERUP_TYPES = [
@@ -53,12 +54,12 @@ POWERUP_WEIGHTS = [
 class PowerUp:
     """A floating or falling collectible power-up or fruit item."""
     def __init__(self, x, y, item_type=None):
-        self.x = float(x)
-        self.y = float(y)
+        self.x = max(24.0, min(float(VIRTUAL_WIDTH - 24), float(x)))
+        self.y = max(36.0, min(float(VIRTUAL_HEIGHT - 24), float(y)))
         self.item_type = item_type or random.choices(POWERUP_TYPES, weights=POWERUP_WEIGHTS, k=1)[0]
         self.rect = pygame.Rect(int(self.x - 8), int(self.y - 8), 16, 16)
 
-        self.vy = -60.0  # gentle upward pop on spawn
+        self.vy = -30.0  # gentle upward pop on spawn
         self.on_ground = False
         self.age = 0.0
         self.lifespan = 20.0  # disappears after 20s if uncollected
@@ -75,6 +76,12 @@ class PowerUp:
             self.vy = min(MAX_FALL_SPEED * 0.5, self.vy + GRAVITY * 0.5 * dt)
             prev_bottom = self.rect.bottom
             self.y += self.vy * dt
+            
+            # Ceiling boundary clamp (keep well below HUD at y=36)
+            if self.y < 36.0:
+                self.y = 36.0
+                self.vy = max(0.0, self.vy)
+                
             self.rect.y = int(self.y - 8)
 
             # Platform landing
@@ -85,6 +92,13 @@ class PowerUp:
                     self.vy = 0.0
                     self.on_ground = True
                     break
+
+            # Arena floor landing (row 19 at y = VIRTUAL_HEIGHT - 16)
+            if self.y >= VIRTUAL_HEIGHT - 24.0:
+                self.y = VIRTUAL_HEIGHT - 24.0
+                self.rect.y = int(self.y - 8)
+                self.vy = 0.0
+                self.on_ground = True
         else:
             # Gentle ground hover bob
             bob = math.sin(self.age * 4.0 + self.bob_phase) * 2.0
