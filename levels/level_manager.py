@@ -1,6 +1,7 @@
 """
 levels/level_manager.py - Level parsing, platform builder, spawn point setup for Bubble Arena.
 """
+import random
 from constants import TILE_SIZE, VIRTUAL_WIDTH, VIRTUAL_HEIGHT
 from entities.platform import Platform
 from levels.level_data import ALL_LEVELS
@@ -90,7 +91,6 @@ class LevelManager:
 
     def load_random_level(self, exclude_current=True):
         """Picks and loads a random arena level."""
-        import random
         count = len(self.levels)
         if count <= 1:
             self.load_level(0)

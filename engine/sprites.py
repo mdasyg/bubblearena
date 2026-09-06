@@ -2,6 +2,8 @@
 engine/sprites.py - Procedural 8-bit Pixel Art Generator & Asset Manager for Bubble Arena.
 Generates authentic retro arcade sprites for characters, animations, bubbles, tiles, and items.
 """
+import os
+import sys
 import pygame
 import math
 from constants import (

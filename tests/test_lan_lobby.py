@@ -110,5 +110,78 @@ class TestLANLobbyAndBugfixes(unittest.TestCase):
         self.assertFalse(p1.is_trapped, "Player 1 must be freed from is_trapped state")
         self.assertNotIn(tb, engine.trapped_bubbles, "Popped trapped bubble must be removed from active list")
 
+    def test_menu_draw_lan_room_lobby_rendering(self):
+        """Validates MenuSystem.draw_lan_room_lobby across empty slots, full ready slots, and chat states."""
+        from ui.menu import MenuSystem
+        from constants import VIRTUAL_WIDTH, VIRTUAL_HEIGHT
+        menu = MenuSystem()
+        surface = pygame.Surface((VIRTUAL_WIDTH, VIRTUAL_HEIGHT))
+
+        # 1. Open slots state (triggers COLOR_DARK_GRAY banner)
+        open_slots = {
+            0: {"name": "Host (P1)", "type": "human", "ready": False},
+            1: {"name": "Open Slot", "type": "open", "ready": False},
+            2: {"name": "Open Slot", "type": "open", "ready": False},
+            3: {"name": "Open Slot", "type": "open", "ready": False},
+        }
+        # Must execute without NameError (validates COLOR_DARK_GRAY)
+        menu.draw_lan_room_lobby(
+            surface, slots=open_slots, chat_history=[], chat_input="",
+            is_chat_active=False, is_host=True, my_player_id=0, status_msg="Hosting on 127.0.0.1:28888"
+        )
+
+        # 2. All 4 players ready state (triggers pulsing banner)
+        ready_slots = {
+            0: {"name": "Host (P1)", "type": "human", "ready": True},
+            1: {"name": "Bot Alpha", "type": "bot", "ready": True},
+            2: {"name": "Bot Beta", "type": "bot", "ready": True},
+            3: {"name": "Client (P4)", "type": "human", "ready": True},
+        }
+        menu.draw_lan_room_lobby(
+            surface, slots=ready_slots, chat_history=[], chat_input="",
+            is_chat_active=False, is_host=True, my_player_id=0, dt=0.05
+        )
+
+        # 3. Active chat typing with history as client
+        sample_chat = [
+            {"player_id": 0, "sender": "Host (P1)", "message": "Welcome all!"},
+            {"player_id": 3, "sender": "Client (P4)", "message": "Ready to play!"}
+        ]
+        menu.draw_lan_room_lobby(
+            surface, slots=ready_slots, chat_history=sample_chat, chat_input="GG everyone",
+            is_chat_active=True, is_host=False, my_player_id=3, dt=0.016
+        )
+
+    def test_engine_render_multiplayer_lobbies(self):
+        """Validates GameEngine render pipeline in STATE_LOBBY and STATE_LAN_ROOM."""
+        from constants import STATE_LOBBY, STATE_LAN_ROOM
+        engine = GameEngine(is_bot_match=False)
+
+        # 1. Validate STATE_LOBBY rendering
+        engine.state = STATE_LOBBY
+        engine.menu.selected_idx = 1
+        engine.render(0.016)
+
+        # 2. Validate STATE_LAN_ROOM hosting with open slots
+        engine.state = STATE_LAN_ROOM
+        engine.is_lan_host = True
+        engine.is_chat_active = False
+        engine.lan_chat_input = ""
+        engine.render(0.016)
+
+        # 3. Validate STATE_LAN_ROOM with active chat
+        engine.is_chat_active = True
+        engine.lan_chat_input = "Hello Lobby!"
+        engine.render(0.016)
+
+        # 4. Validate STATE_LAN_ROOM with all 4 slots ready
+        engine.room_slots = {
+            0: {"name": "Host (P1)", "type": "human", "ready": True},
+            1: {"name": "Bot 1", "type": "bot", "ready": True},
+            2: {"name": "Bot 2", "type": "bot", "ready": True},
+            3: {"name": "Bot 3", "type": "bot", "ready": True},
+        }
+        engine.render(0.016)
+
 if __name__ == "__main__":
     unittest.main()

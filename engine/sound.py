@@ -5,6 +5,7 @@ Synthesizes square, triangle, and noise waveforms using standard Python array bu
 import math
 import struct
 import array
+import random
 import pygame
 
 class SoundManager:
