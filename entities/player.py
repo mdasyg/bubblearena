@@ -9,15 +9,19 @@ from constants import (
     BUBBLE_BOUNCE_SPEED, ACCELERATION, FRICTION, AIR_ACCEL, AIR_FRICTION,
     BUBBLE_FIRE_COOLDOWN, RAPID_FIRE_COOLDOWN, BUBBLE_SHOT_DISTANCE,
     RESPAWN_DELAY, INVULNERABLE_DURATION, VIRTUAL_WIDTH, VIRTUAL_HEIGHT,
-    COLOR_WHITE, COLOR_GOLD, COLOR_YELLOW, PLAYER_COLORS
+    COLOR_WHITE, COLOR_GOLD, COLOR_YELLOW, PLAYER_COLORS,
+    BOT_PERSONALITIES, BOT_PERSONALITY_STANDARD
 )
 from entities.bubble import Bubble
+from engine.bot_ai import BotAI
 
 class Player:
     """Represents a player character (human or AI controlled)."""
-    def __init__(self, player_id, spawn_x, spawn_y, team=0, is_bot=False):
+    def __init__(self, player_id, spawn_x, spawn_y, team=0, is_bot=False, personality=None):
         self.id = player_id
-        self.name = PLAYER_COLORS[player_id]["name"]
+        self.personality = personality or random.choice(BOT_PERSONALITIES)
+        base_name = PLAYER_COLORS[player_id]["name"]
+        self.name = f"{base_name} [{self.personality}]" if is_bot else base_name
         self.team = team
         self.is_bot = is_bot
 
@@ -358,8 +362,8 @@ class Player:
             self.anim_timer = 0.0
             self.anim_frame += 1
 
-    def update_bot_ai(self, dt, all_players, bubbles, trapped_bubbles, flag=None):
-        """Intelligent retro arcade bot logic."""
+    def update_bot_ai(self, dt, all_players, bubbles, trapped_bubbles, flag=None, powerups=None, game_mode="ffa", level_mgr=None):
+        """Intelligent retro arcade bot logic powered by BotAI."""
         if not self.is_bot or not self.is_alive or self.is_trapped:
             return self.bot_action
 
@@ -367,52 +371,11 @@ class Player:
         if self.bot_think_timer > 0:
             return self.bot_action
 
-        self.bot_think_timer = random.uniform(0.1, 0.25)
-        actions = {"left": False, "right": False, "jump": False, "shoot": False, "struggle": True}
-
-        # 1. Look for trapped enemies to pop / trapped allies to rescue
-        target_tb = None
-        for tb in trapped_bubbles:
-            if tb.is_alive:
-                target_tb = tb
-                break
-
-        # 2. Look for closest active enemy or flag
-        target_x, target_y = None, None
-        if target_tb:
-            target_x, target_y = target_tb.x, target_tb.y
-        elif flag and flag.carrier != self:
-            target_x, target_y = flag.x, flag.y
-        else:
-            # Find closest enemy player
-            opponents = [p for p in all_players if p.id != self.id and p.is_alive and not p.is_trapped]
-            if opponents:
-                closest_opp = min(opponents, key=lambda p: (p.x - self.x)**2 + (p.y - self.y)**2)
-                target_x, target_y = closest_opp.x, closest_opp.y
-
-        if target_x is not None:
-            # Horizontal steering
-            if target_x < self.x - 12:
-                actions["left"] = True
-            elif target_x > self.x + 12:
-                actions["right"] = True
-
-            # Jump if target is higher than bot
-            if target_y < self.y - 20 and self.is_grounded:
-                actions["jump"] = True
-
-            # Shoot if on roughly same vertical level as target
-            if abs(target_y - self.y) < 24 and random.random() < 0.7:
-                # Shoot towards target
-                facing_target = (target_x > self.x and self.facing > 0) or (target_x < self.x and self.facing < 0)
-                if facing_target:
-                    actions["shoot"] = True
-
-        # Random occasional jump for agility
-        if self.is_grounded and random.random() < 0.08:
-            actions["jump"] = True
-
-        self.bot_action = actions
+        self.bot_think_timer = random.uniform(0.08, 0.20)
+        self.bot_action = BotAI.decide_action(
+            self, dt, all_players, bubbles, trapped_bubbles,
+            flag=flag, powerups=powerups, game_mode=game_mode, level_mgr=level_mgr
+        )
         return self.bot_action
 
     def draw(self, surface, sprite_manager):

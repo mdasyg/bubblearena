@@ -248,19 +248,61 @@ class MenuSystem:
         footer = self.font_info.render("[UP/DOWN] Select Option   [LEFT/RIGHT] Change IP   [ENTER] Select   [ESC] Return", True, COLOR_GRAY)
         surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 14)))
 
-    def draw_lan_room_lobby(self, surface, slots, chat_history, chat_input, is_chat_active, is_host, my_player_id, status_msg="", dt=0.016):
-        """Dedicated 4-player LAN Room Lobby with Ready check & Broadcast Chat."""
+    def draw_player_count_select(self, surface, dt):
+        """Player count selection screen: choose how many human players (1 to 4). Remaining are CPU bots."""
+        self.anim_timer += dt
+        surface.fill(COLOR_BLACK)
+
+        title = self.font_title.render("HOW MANY HUMAN PLAYERS?", True, COLOR_GOLD)
+        surface.blit(title, title.get_rect(center=(VIRTUAL_WIDTH // 2, 28)))
+
+        sub = self.font_info.render("Select human count - remaining slots up to 4 will be CPU bots", True, COLOR_CYAN)
+        surface.blit(sub, sub.get_rect(center=(VIRTUAL_WIDTH // 2, 46)))
+
+        options = [
+            ("1 HUMAN PLAYER",  "P1: Human (WASD / Arrows)   + 3 Random CPU Bots"),
+            ("2 HUMAN PLAYERS", "P1: WASD / Space / F        P2: Arrows / Enter   + 2 CPU Bots"),
+            ("3 HUMAN PLAYERS", "P1: WASD    P2: Arrows    P3: IJKL / O   + 1 CPU Bot"),
+            ("4 HUMAN PLAYERS", "P1: WASD    P2: Arrows    P3: IJKL       P4: Numpad (All Humans)"),
+        ]
+
+        start_y = 66
+        for i, (opt_title, opt_desc) in enumerate(options):
+            is_sel = (i == self.selected_idx)
+            col = COLOR_GOLD if is_sel else COLOR_WHITE
+            box_rect = pygame.Rect(35, start_y + i * 52, VIRTUAL_WIDTH - 70, 42)
+
+            bg_col = (50, 50, 90) if is_sel else (25, 28, 45)
+            pygame.draw.rect(surface, bg_col, box_rect, border_radius=4)
+            pygame.draw.rect(surface, col, box_rect, 2 if is_sel else 1, border_radius=4)
+
+            t_surf = self.font_menu.render(f"{i+1}. {opt_title}", True, col)
+            surface.blit(t_surf, (box_rect.x + 12, box_rect.y + 6))
+
+            d_surf = self.font_info.render(opt_desc, True, COLOR_GRAY if not is_sel else COLOR_YELLOW)
+            surface.blit(d_surf, (box_rect.x + 12, box_rect.y + 24))
+
+        footer = self.font_info.render("[UP/DOWN] Select   [ENTER/SPACE] Start Match   [ESC] Return", True, COLOR_GRAY)
+        surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 14)))
+
+    def draw_lan_room_lobby(self, surface, slots, chat_history, chat_input, is_chat_active, is_host, my_player_id, status_msg="", dt=0.016, game_mode="ffa"):
+        """Dedicated 4-player LAN Room Lobby with Ready check, Game Mode sync, & Broadcast Chat."""
         self.anim_timer += dt
         surface.fill(COLOR_BLACK)
 
         # Title & Room Info
         title = self.font_title.render("LAN ROOM LOBBY", True, COLOR_GOLD)
-        surface.blit(title, title.get_rect(center=(VIRTUAL_WIDTH // 2, 18)))
+        surface.blit(title, title.get_rect(center=(VIRTUAL_WIDTH // 2, 16)))
 
-        # Subtitle
-        role_str = "ROOM HOST (P1)" if is_host else f"CONNECTED CLIENT (P{my_player_id + 1})"
-        sub = self.font_info.render(f"Role: {role_str} | 4-Player Match Room", True, COLOR_CYAN)
-        surface.blit(sub, sub.get_rect(center=(VIRTUAL_WIDTH // 2, 34)))
+        # Subtitle & Game Mode
+        mode_hint = " (Host [M] to Cycle)" if is_host else ""
+        mode_label = f"MODE: [{game_mode.upper()}]{mode_hint}"
+        mode_surf = self.font_info.render(mode_label, True, COLOR_YELLOW)
+        surface.blit(mode_surf, (20, 32))
+
+        role_str = "ROOM HOST (P1)" if is_host else f"CLIENT (P{my_player_id + 1})"
+        sub = self.font_info.render(f"Role: {role_str}", True, COLOR_CYAN)
+        surface.blit(sub, (VIRTUAL_WIDTH - 20 - sub.get_width(), 32))
 
         # Left Column: 4 Player Slots (Cards)
         player_colors = [COLOR_GREEN, COLOR_BLUE, COLOR_YELLOW, COLOR_PINK]
@@ -292,8 +334,9 @@ class MenuSystem:
                 st_color = COLOR_GRAY
             elif slot_type == "bot":
                 filled_count += 1
+                pers = slot.get("personality", "Standard")
                 name_text = f"P{slot_idx + 1}: {slot.get('name', 'Bot')}"
-                status_text = "[READY (BOT)]"
+                status_text = f"[READY (CPU-{pers.upper()})]"
                 st_color = COLOR_GREEN
             else:  # human
                 filled_count += 1
@@ -373,7 +416,7 @@ class MenuSystem:
         surface.blit(input_surf, (input_rect.x + 5, input_rect.y + 4))
 
         # Bottom Controls Footer
-        host_controls = "   [B] Fill Bots" if is_host else ""
+        host_controls = "   [B] Fill Bots   [M] Cycle Mode" if is_host else ""
         chat_hint = "[ESC] Unfocus Chat" if is_chat_active else "[TAB/C] Focus Chat"
         footer_str = f"[R/SPACE] Toggle Ready   {chat_hint}{host_controls}   [ESC] Exit"
         footer = self.font_info.render(footer_str, True, COLOR_GRAY)

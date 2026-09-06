@@ -2,7 +2,7 @@ import socket
 import select
 import threading
 import time
-from constants import DEFAULT_PORT, BROADCAST_PORT, DISCOVERY_RESPONSE
+from constants import DEFAULT_PORT, BROADCAST_PORT, DISCOVERY_RESPONSE, MODE_FFA
 from network.protocol import (
     encode_packet, parse_packets, MSG_INPUT, MSG_JOIN_ACCEPT,
     MSG_STATE_SYNC, MSG_READY_TOGGLE, MSG_LOBBY_STATE, MSG_CHAT, MSG_MATCH_START
@@ -31,6 +31,8 @@ class LANClient:
         self.match_started = False
         self.host_ip = ""
         self.host_port = DEFAULT_PORT
+        self.lobby_game_mode = MODE_FFA
+        self.match_game_mode = MODE_FFA
 
     @staticmethod
     def discover_hosts(timeout=2.0):
@@ -111,6 +113,7 @@ class LANClient:
                                 for k, v in slots.items():
                                     self.lobby_slots[int(k)] = v
                                 self.host_ip = payload.get("host_ip", self.host_ip)
+                                self.lobby_game_mode = payload.get("game_mode", self.lobby_game_mode)
                         elif p_type == MSG_CHAT:
                             with self.lock:
                                 self.chat_history.append(payload)
@@ -118,6 +121,7 @@ class LANClient:
                                     self.chat_history.pop(0)
                         elif p_type == MSG_MATCH_START:
                             with self.lock:
+                                self.match_game_mode = payload.get("game_mode", self.lobby_game_mode)
                                 self.match_started = True
                         elif p_type == MSG_STATE_SYNC:
                             with self.lock:

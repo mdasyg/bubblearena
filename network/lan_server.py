@@ -5,7 +5,11 @@ import socket
 import select
 import threading
 import time
-from constants import DEFAULT_PORT, BROADCAST_PORT, DISCOVERY_MAGIC, DISCOVERY_RESPONSE
+import random
+from constants import (
+    DEFAULT_PORT, BROADCAST_PORT, DISCOVERY_MAGIC, DISCOVERY_RESPONSE,
+    MODE_FFA, MODE_TEAM, MODE_CTF, BOT_PERSONALITIES
+)
 from network.protocol import (
     encode_packet, parse_packets, MSG_JOIN_REQUEST, MSG_JOIN_ACCEPT,
     MSG_INPUT, MSG_STATE_SYNC, MSG_READY_TOGGLE, MSG_LOBBY_STATE,
@@ -82,6 +86,7 @@ class LANServer:
         }
         self.chat_history = []  # [{"sender": str, "message": str, "color": tuple}]
         self.match_started = False
+        self.game_mode_name = MODE_FFA
 
     def get_local_ip(self):
         """Retrieves the user-selected LAN IP address of this machine."""
@@ -234,13 +239,24 @@ class LANServer:
                     }
                 self._broadcast_lobby_state_locked()
 
+    def cycle_game_mode(self):
+        """Cycles the LAN match game mode between FFA, 2v2 Team, and CTF."""
+        with self.lock:
+            modes = [MODE_FFA, MODE_TEAM, MODE_CTF]
+            cur_idx = modes.index(self.game_mode_name) if self.game_mode_name in modes else 0
+            self.game_mode_name = modes[(cur_idx + 1) % len(modes)]
+            self._broadcast_lobby_state_locked()
+            return self.game_mode_name
+
     def fill_all_bots(self):
-        """Fills all currently open slots with bots."""
+        """Fills all currently open slots with CPU bots having random personalities."""
         with self.lock:
             for i in range(1, 4):
                 if self.lobby_slots[i]["type"] == "open":
+                    pers = random.choice(BOT_PERSONALITIES)
                     self.lobby_slots[i] = {
-                        "name": f"Bot {i + 1}",
+                        "name": f"Bot {i + 1} ({pers})",
+                        "personality": pers,
                         "type": "bot",
                         "ready": True
                     }
@@ -278,11 +294,12 @@ class LANServer:
             return True
 
     def _broadcast_lobby_state_locked(self):
-        """Broadcasts current lobby player status and ready flags to all clients."""
+        """Broadcasts current lobby player status, mode, and ready flags to all clients."""
         pkt = encode_packet(MSG_LOBBY_STATE, {
             "slots": self.lobby_slots,
             "host_ip": self.selected_ip,
-            "port": self.port
+            "port": self.port,
+            "game_mode": self.game_mode_name
         })
         for s in list(self.clients.keys()):
             try:
@@ -300,10 +317,13 @@ class LANServer:
                 pass
 
     def broadcast_match_start(self):
-        """Broadcasts match start trigger to all connected clients."""
+        """Broadcasts match start trigger with synced game mode to all connected clients."""
         with self.lock:
             self.match_started = True
-            pkt = encode_packet(MSG_MATCH_START, {"started": True})
+            pkt = encode_packet(MSG_MATCH_START, {
+                "started": True,
+                "game_mode": self.game_mode_name
+            })
             for s in list(self.clients.keys()):
                 try:
                     s.sendall(pkt)

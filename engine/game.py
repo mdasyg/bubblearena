@@ -9,6 +9,7 @@ from constants import (
     SCREEN_WIDTH, SCREEN_HEIGHT, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, FPS, TITLE,
     STATE_MENU, STATE_MODE_SELECT, STATE_LEVEL_SELECT, STATE_LOBBY,
     STATE_PLAYING, STATE_PAUSED, STATE_GAMEOVER, STATE_VICTORY, STATE_CONTROLS, STATE_LAN_ROOM,
+    STATE_PLAYER_COUNT, BOT_PERSONALITIES,
     MODE_FFA, MODE_TEAM, MODE_CTF, GAME_MODES, PLAYER_COLORS,
     COLOR_GOLD, COLOR_RED, COLOR_GREEN, DEFAULT_PORT
 )
@@ -85,17 +86,24 @@ class GameEngine:
 
         self._init_players()
 
-    def _init_players(self):
-        """Creates 4 player instances (Team 0: Green/Yellow, Team 1: Blue/Pink)."""
+    def setup_players_by_human_count(self, human_count=1):
+        """Sets the first `human_count` players as humans, and the remaining up to 4 as CPU bots with random personalities."""
+        human_count = max(1, min(4, human_count))
         self.players.clear()
         for i in range(4):
             sp = self.level_mgr.spawn_points.get(i, (40 + i * 100, 50))
-            # In local mode: Player 0 is Human, Players 1-3 are AI bots if is_bot_match, or local human keys
-            # By default Player 0 is Human, other players can be controlled or AI
-            is_bot = (i > 0) if self.is_bot_match else False
+            is_bot = (i >= human_count)
             team = 0 if i in (0, 2) else 1
-            p = Player(player_id=i, spawn_x=sp[0], spawn_y=sp[1], team=team, is_bot=is_bot)
+            pers = random.choice(BOT_PERSONALITIES) if is_bot else None
+            p = Player(player_id=i, spawn_x=sp[0], spawn_y=sp[1], team=team, is_bot=is_bot, personality=pers)
             self.players.append(p)
+
+    def _init_players(self):
+        """Creates 4 player instances based on is_bot_match or default settings."""
+        if self.is_bot_match:
+            self.setup_players_by_human_count(1)
+        else:
+            self.setup_players_by_human_count(1)
 
     def set_game_mode(self, mode_name):
         """Switches the active game mode rules."""
@@ -171,8 +179,9 @@ class GameEngine:
                 elif action == "SELECT":
                     self.sound_mgr.play_sfx("select")
                     idx = self.menu.selected_idx
-                    if idx == 0:  # Start Local Match
-                        self.start_match()
+                    if idx == 0:  # Start Local Match -> Ask how many human players
+                        self.menu.selected_idx = 0
+                        self.state = STATE_PLAYER_COUNT
                     elif idx == 1:  # Select Mode
                         self.menu.selected_idx = GAME_MODES.index(self.current_mode_name) if self.current_mode_name in GAME_MODES else 0
                         self.state = STATE_MODE_SELECT
@@ -186,6 +195,19 @@ class GameEngine:
                         self.state = STATE_CONTROLS
                     elif idx == 5:  # Quit
                         self.running = False
+
+            elif self.state == STATE_PLAYER_COUNT:
+                action = self.menu.handle_navigation(event, 4)
+                if action == "MOVE":
+                    self.sound_mgr.play_sfx("select")
+                elif action == "SELECT":
+                    human_count = self.menu.selected_idx + 1  # 1, 2, 3, or 4
+                    self.setup_players_by_human_count(human_count)
+                    self.sound_mgr.play_sfx("select")
+                    self.start_match()
+                elif action == "BACK":
+                    self.menu.selected_idx = 0
+                    self.state = STATE_MENU
 
             elif self.state == STATE_MODE_SELECT:
                 action = self.menu.handle_navigation(event, 3)
@@ -325,6 +347,12 @@ class GameEngine:
                             if self.lan_server:
                                 self.lan_server.fill_all_bots()
                                 self.sound_mgr.play_sfx("select")
+                        elif self.is_lan_host and event.key == pygame.K_m:
+                            # Host shortcut to cycle Game Mode in LAN Room
+                            if self.lan_server:
+                                new_mode = self.lan_server.cycle_game_mode()
+                                self.set_game_mode(new_mode)
+                                self.sound_mgr.play_sfx("select")
                         elif event.key == pygame.K_ESCAPE:
                             # Leave LAN Room
                             if self.is_lan_host and self.lan_server:
@@ -462,10 +490,16 @@ class GameEngine:
 
                 # When all 4 players are ready -> auto start the match!
                 if self.lan_server.is_all_players_ready():
+                    self.set_game_mode(self.lan_server.game_mode_name)
                     self.lan_server.broadcast_match_start()
                     for i in range(4):
                         slot = self.lan_server.lobby_slots[i]
-                        self.players[i].is_bot = (slot["type"] == "bot")
+                        is_bot = (slot["type"] == "bot")
+                        self.players[i].is_bot = is_bot
+                        if is_bot:
+                            pers = slot.get("personality", "Standard")
+                            self.players[i].personality = pers
+                            self.players[i].name = f"{PLAYER_COLORS[i]['name']} [{pers}]"
                     self.state = STATE_PLAYING
                     self.sound_mgr.play_sfx("victory")
                     self.start_match()
@@ -474,6 +508,16 @@ class GameEngine:
                 self.room_slots = self.lan_client.get_lobby_slots()
                 self.room_chat_history = self.lan_client.get_chat_history()
                 if self.lan_client.is_match_started():
+                    synced_mode = getattr(self.lan_client, "match_game_mode", MODE_FFA)
+                    self.set_game_mode(synced_mode)
+                    for i in range(4):
+                        slot = self.room_slots.get(i, {})
+                        is_bot = (slot.get("type") == "bot")
+                        self.players[i].is_bot = is_bot
+                        if is_bot:
+                            pers = slot.get("personality", "Standard")
+                            self.players[i].personality = pers
+                            self.players[i].name = f"{PLAYER_COLORS[i]['name']} [{pers}]"
                     self.state = STATE_PLAYING
                     self.sound_mgr.play_sfx("victory")
                     self.start_match()
@@ -505,7 +549,10 @@ class GameEngine:
             else:
                 # Bot AI or Human Input
                 if p.is_bot:
-                    bot_act = p.update_bot_ai(dt, self.players, self.bubbles, self.trapped_bubbles, self.flag)
+                    bot_act = p.update_bot_ai(
+                        dt, self.players, self.bubbles, self.trapped_bubbles,
+                        flag=self.flag, powerups=self.powerups, game_mode=self.current_mode_name, level_mgr=self.level_mgr
+                    )
                     p.handle_input(bot_act, dt, spawned_bubbles, self.sound_mgr, self.particle_mgr)
                 else:
                     user_act = self.input_handler.poll_inputs(p.id)
@@ -653,6 +700,9 @@ class GameEngine:
         if self.state == STATE_MENU:
             self.menu.draw_title_screen(self.virtual_screen, self.sprite_mgr, self.current_mode_name, self.level_mgr.level_name, dt)
 
+        elif self.state == STATE_PLAYER_COUNT:
+            self.menu.draw_player_count_select(self.virtual_screen, dt)
+
         elif self.state == STATE_MODE_SELECT:
             self.menu.draw_mode_select(self.virtual_screen, self.menu.selected_idx, dt)
 
@@ -672,6 +722,9 @@ class GameEngine:
 
         elif self.state == STATE_LAN_ROOM:
             my_id = 0 if self.is_lan_host else (self.lan_client.assigned_player_id if self.lan_client and self.lan_client.assigned_player_id is not None else 1)
+            current_mode = self.lan_server.game_mode_name if self.is_lan_host and self.lan_server else (
+                self.lan_client.lobby_game_mode if self.is_lan_client and self.lan_client else self.current_mode_name
+            )
             self.menu.draw_lan_room_lobby(
                 self.virtual_screen,
                 self.room_slots,
@@ -681,7 +734,8 @@ class GameEngine:
                 self.is_lan_host,
                 my_id,
                 self.net_status_msg,
-                dt
+                dt,
+                game_mode=current_mode
             )
 
         elif self.state in (STATE_PLAYING, STATE_PAUSED, STATE_VICTORY):

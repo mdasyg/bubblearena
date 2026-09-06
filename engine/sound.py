@@ -27,8 +27,12 @@ class SoundManager:
             self._generate_all_sfx()
             self._generate_bgm_tracks()
         except Exception as e:
-            print(f"[SoundManager] Audio initialization notice: {e}. Running in silent mode.")
+            print(f"[SoundManager] Audio initialization notice: {e}. Game continuing in silent mode without audio.")
             self.enabled = False
+            self.music_channel = None
+            self.sfx = {}
+            self.normal_bgm = None
+            self.fast_bgm_sound = None
 
     def _generate_tone(self, freq_list, duration, wave_type="square", volume=0.5, duty=0.5):
         """Generates a raw 16-bit stereo PCM sound buffer from frequency and duration steps."""
@@ -201,29 +205,41 @@ class SoundManager:
         """Plays a registered sound effect by name."""
         if not self.enabled:
             return
-        snd = self.sfx.get(name)
-        if snd:
-            snd.play()
+        try:
+            snd = self.sfx.get(name)
+            if snd:
+                snd.play()
+        except Exception:
+            pass
 
     def start_bgm(self, fast=False):
         """Starts looping the background music track."""
         if not self.enabled or not self.music_channel:
             return
-        self.fast_bgm = fast
-        snd = self.fast_bgm_sound if fast else self.normal_bgm
-        if snd:
-            self.music_channel.play(snd, loops=-1)
-            self.bgm_playing = True
+        try:
+            self.fast_bgm = fast
+            snd = self.fast_bgm_sound if fast else self.normal_bgm
+            if snd:
+                self.music_channel.play(snd, loops=-1)
+                self.bgm_playing = True
+        except Exception:
+            self.bgm_playing = False
 
     def set_hurry_mode(self, hurry=True):
         """Switches dynamically between normal and fast tempo BGM."""
         if not self.enabled or hurry == self.fast_bgm:
             return
-        self.start_bgm(fast=hurry)
+        try:
+            self.start_bgm(fast=hurry)
+        except Exception:
+            pass
 
     def stop_bgm(self):
         """Stops background music."""
         if not self.enabled or not self.music_channel:
             return
-        self.music_channel.stop()
+        try:
+            self.music_channel.stop()
+        except Exception:
+            pass
         self.bgm_playing = False
