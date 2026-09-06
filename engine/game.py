@@ -35,10 +35,10 @@ class GameEngine:
     def __init__(self, is_bot_match=False):
         pygame.init()
         pygame.display.set_caption(TITLE)
-
         self.window = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         self.virtual_screen = pygame.Surface((VIRTUAL_WIDTH, VIRTUAL_HEIGHT))
         self.clock = pygame.time.Clock()
+        self.running = True
         self.is_running = True
 
         # Subsystems

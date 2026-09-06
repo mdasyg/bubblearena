@@ -333,5 +333,17 @@ class TestBubbleArena(unittest.TestCase):
             tag, pts = pu.apply_to_player(player)
             self.assertEqual(pts, exp_pts)
 
+    def test_engine_running_attribute_and_shutdown(self):
+        """Verify GameEngine has running and is_running attributes initialized to True and clean shutdown."""
+        from engine.game import GameEngine
+        engine = GameEngine(is_bot_match=False)
+        self.assertTrue(engine.running)
+        self.assertTrue(engine.is_running)
+
+        # Set running = False to immediately trigger run loop exit and verify clean exit
+        engine.running = False
+        with self.assertRaises(SystemExit):
+            engine.run()
+
 if __name__ == "__main__":
     unittest.main()
