@@ -252,3 +252,63 @@ python -m unittest discover tests
 - **`test_platform_edge.py`**: Platform edge boundary alignment and precision landing.
 - **`test_sprites.py`**: Sprite sheet parsing and character frame animations.
 - **`test_simulation.py`**: 150-frame end-to-end game simulation across all 3 game modes.
+- **`test_bot_personalities.py`**: AI decision engine, personality archetypes (Aggressive, Passive, Standard), CTF retrieval/carrier delivery tactics, team rescue priorities, and bonus utility appraisal.
+- **`test_player_count_and_lan_modes.py`**: Local human count ratios (1-4 players + bots), LAN game mode cycling & sync, and sound card silent-mode fallback.
+
+---
+
+## 🤖 Computer Player AI & Personalities
+
+Bubble Arena features a dedicated decision engine ([`engine/bot_ai.py`](file:///c:/Temp/BubbleArena/engine/bot_ai.py)) with three distinct personality profiles:
+
+| Personality | Combat Style | Bonus Appraisal | Game Mode Tactics |
+| :--- | :--- | :--- | :--- |
+| **Aggressive** | Relentlessly chases closest opponent; rapid bubble fire; prioritizes popping trapped foes | Pursues combat buffs (Shield, Giant Candy, Speed); **skips bonuses** when locked on an urgent target | **CTF**: Hunts enemy flag carrier relentlessly to force drop; charges defenders when escorting.<br>**Team**: Focuses on eliminating trapped enemies. |
+| **Passive** | Keeps safe distance; flees if enemy is within 85px; uses defensive covering fire | High priority on **Star Shield**; **skips bonuses** if enemies are nearby; gathers safe items on empty tiers | **CTF**: Intercepts from elevated platforms; guards base; takes high stealth routes when carrying.<br>**Team**: High rescue priority for trapped allies. |
+| **Standard** | Balanced tactical navigation; bubble bouncing; opportunist attacks | Balanced utility formula (`utility - distance`); detours for gems/candies $\ge 70$ utility | **CTF**: Balances flag grabbing, intercepting, and escorting.<br>**Team**: Rescues allies about to expire, else pops foes. |
+
+---
+
+## 🌐 Pushing to a Brand New Remote GitHub Repository
+
+To share this codebase with other agents and developers via a new GitHub repository:
+
+### Step 1: Create an Empty GitHub Repository
+1. Log in to [GitHub](https://github.com) and click **New Repository** (or run `gh repo create BubbleArena --public`).
+2. **Do NOT initialize** with a README, .gitignore, or license (the local repo already contains these).
+3. Copy your repository's remote URL:
+   - HTTPS: `https://github.com/<YOUR-USERNAME>/BubbleArena.git`
+   - Or SSH: `git@github.com:<YOUR-USERNAME>/BubbleArena.git`
+
+### Step 2: Ensure Git CLI is Installed on Your System
+If `git` command is not recognized in your terminal, install Git for Windows:
+```powershell
+winget install --id Git.Git -e --source winget
+```
+*(After installing, open a new terminal window to refresh PATH)*.
+
+### Step 3: Configure Remote Origin and Push
+In your `c:\Temp\BubbleArena` directory, run:
+```powershell
+# 1. Ensure the default branch is named 'main'
+git branch -M main
+
+# 2. Add your remote repository origin
+git remote add origin https://github.com/<YOUR-USERNAME>/BubbleArena.git
+
+# 3. Push all commits and set upstream tracking
+git push -u origin main
+```
+
+> [!TIP]
+> If your local Git repository was managed using the bundled pure-Python Dulwich manager (`python git_tool.py`), running the standard `git` commands above will seamlessly read all existing commits and history.
+
+### Step 4: Instructions for Cooperating Agents
+Other agents or developers can immediately clone and run the project:
+```bash
+git clone https://github.com/<YOUR-USERNAME>/BubbleArena.git
+cd BubbleArena
+pip install pygame
+python -m unittest discover tests
+python main.py
+```
