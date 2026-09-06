@@ -29,7 +29,9 @@ BUBBLE_FLOAT_SPEED = -35.0     # buoyant upward drift speed
 BUBBLE_SWAY_AMPLITUDE = 18.0   # left-right sine wave sway amplitude
 BUBBLE_SWAY_FREQUENCY = 2.0    # sway frequency (Hz)
 BUBBLE_LIFESPAN = 30.0         # 30 seconds lifetime before pop / explosion
+BUBBLE_TRAPPED_LIFESPAN = 30.0 # 30 seconds lifetime for trapped bubbles before pop/escape
 BUBBLE_FLASH_TIME = 24.0       # time when bubble starts warning flash
+BUBBLE_TRAPPED_FLASH_TIME = 24.0 # time when trapped bubble starts warning flash
 BUBBLE_RADIUS = 12             # standard bubble visual radius
 GIANT_BUBBLE_RADIUS = 24       # 2x size giant candy bubble radius (twice the size)
 GIANT_CANDY_DURATION = 30.0    # 30 seconds temporary giant bubble bonus
@@ -131,6 +133,7 @@ STATE_PAUSED = 5
 STATE_GAMEOVER = 6
 STATE_VICTORY = 7
 STATE_CONTROLS = 8
+STATE_LAN_ROOM = 9
 
 # --- Network Configuration ---
 DEFAULT_PORT = 28888

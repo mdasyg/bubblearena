@@ -9,6 +9,10 @@ MSG_INPUT = "INPUT"
 MSG_STATE_SYNC = "STATE_SYNC"
 MSG_PING = "PING"
 MSG_PONG = "PONG"
+MSG_READY_TOGGLE = "READY_TOGGLE"
+MSG_LOBBY_STATE = "LOBBY_STATE"
+MSG_CHAT = "CHAT"
+MSG_MATCH_START = "MATCH_START"
 
 def encode_packet(msg_type, payload):
     """Encodes message type and payload to utf-8 JSON bytes with newline delimiter."""

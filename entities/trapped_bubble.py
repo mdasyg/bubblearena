@@ -6,7 +6,7 @@ import math
 import random
 from constants import (
     BUBBLE_FLOAT_SPEED, BUBBLE_SWAY_AMPLITUDE, BUBBLE_SWAY_FREQUENCY,
-    BUBBLE_LIFESPAN, BUBBLE_FLASH_TIME, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, STRUGGLE_ESCAPE_PRESSES
+    BUBBLE_TRAPPED_LIFESPAN, BUBBLE_TRAPPED_FLASH_TIME, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, STRUGGLE_ESCAPE_PRESSES
 )
 
 class TrappedBubble:
@@ -22,7 +22,7 @@ class TrappedBubble:
         self.radius = 14
         self.rect = pygame.Rect(int(self.x - self.radius), int(self.y - self.radius), self.radius * 2, self.radius * 2)
 
-        self.lifespan = BUBBLE_LIFESPAN  # 30.0 seconds
+        self.lifespan = BUBBLE_TRAPPED_LIFESPAN  # 18.0 seconds
         self.age = 0.0
         self.sway_phase = random.uniform(0, 2 * math.pi)
         self.is_alive = True
@@ -94,31 +94,33 @@ class TrappedBubble:
 
     def is_warning_flash(self):
         """Flashes when close to popping/expiring."""
-        return (self.age >= BUBBLE_FLASH_TIME) and ((int(self.age * 10) % 2) == 0)
+        return (self.age >= BUBBLE_TRAPPED_FLASH_TIME) and ((int(self.age * 10) % 2) == 0)
 
-    def check_pop_by_player(self, popping_player, is_team_mode=False):
+    def check_pop_by_player(self, popping_player, is_team_mode=False, force_pop=False):
         """
-        Determines the pop result when another player touches this trapped bubble:
+        Determines the pop result when another player touches this trapped bubble
+        or when popped via chain explosion (force_pop=True):
         Returns: ('KILL', points), ('RESCUE', points), or None
         """
-        if not self.is_alive or popping_player.id == self.trapped_player.id:
+        if not force_pop and not self.rect.colliderect(popping_player.rect):
             return None
 
-        # Check collision with popping player
-        if not self.rect.colliderect(popping_player.rect):
-            return None
+        self.is_alive = False
+
+        # If popping player is the trapped player themselves (e.g. self-triggered chain pop)
+        if popping_player.id == self.trapped_player.id:
+            self.trapped_player.free_from_bubble(was_rescued=False)
+            return ("RESCUE", 200)
 
         # Team vs Opponent logic
         is_teammate = is_team_mode and (popping_player.team == self.trapped_player.team)
 
         if is_teammate:
             # Case B: TEAMMATE Pops -> RESCUE
-            self.is_alive = False
             self.trapped_player.free_from_bubble(was_rescued=True)
             return ("RESCUE", 500)
         else:
             # Case A: OPPONENT Pops -> ELIMINATION / KILL
-            self.is_alive = False
             self.trapped_player.kill_and_respawn()
             return ("KILL", 1000)
 

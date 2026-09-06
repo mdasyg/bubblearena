@@ -1,15 +1,15 @@
-"""
-network/lan_client.py - LAN client for connecting to a Bubble Arena host.
-"""
 import socket
 import select
 import threading
 import time
 from constants import DEFAULT_PORT, BROADCAST_PORT, DISCOVERY_RESPONSE
-from network.protocol import encode_packet, parse_packets, MSG_INPUT, MSG_JOIN_ACCEPT, MSG_STATE_SYNC
+from network.protocol import (
+    encode_packet, parse_packets, MSG_INPUT, MSG_JOIN_ACCEPT,
+    MSG_STATE_SYNC, MSG_READY_TOGGLE, MSG_LOBBY_STATE, MSG_CHAT, MSG_MATCH_START
+)
 
 class LANClient:
-    """Connects to a LAN host, sends local player controls, and receives replicated state."""
+    """Connects to a LAN host, sends local player controls, and receives replicated state/lobby sync."""
     def __init__(self):
         self.sock = None
         self.assigned_player_id = None
@@ -19,6 +19,18 @@ class LANClient:
         self.recv_buffer = b""
         self.latest_state = None
         self.lock = threading.Lock()
+
+        # Lobby State
+        self.lobby_slots = {
+            0: {"name": "Host (P1)", "type": "human", "ready": False},
+            1: {"name": "Open Slot", "type": "open", "ready": False},
+            2: {"name": "Open Slot", "type": "open", "ready": False},
+            3: {"name": "Open Slot", "type": "open", "ready": False},
+        }
+        self.chat_history = []
+        self.match_started = False
+        self.host_ip = ""
+        self.host_port = DEFAULT_PORT
 
     @staticmethod
     def discover_hosts(timeout=2.0):
@@ -60,6 +72,9 @@ class LANClient:
             self.sock.setblocking(False)
             self.is_connected = True
             self.is_running = True
+            self.match_started = False
+            self.host_ip = host_ip
+            self.host_port = port
 
             self.receive_thread = threading.Thread(target=self._run_receiver, daemon=True)
             self.receive_thread.start()
@@ -71,7 +86,7 @@ class LANClient:
             return False
 
     def _run_receiver(self):
-        """Continuously reads incoming state packets from host."""
+        """Continuously reads incoming state packets and lobby messages from host."""
         while self.is_running and self.is_connected:
             try:
                 readable, _, _ = select.select([self.sock], [], [], 0.05)
@@ -90,6 +105,20 @@ class LANClient:
                         if p_type == MSG_JOIN_ACCEPT:
                             self.assigned_player_id = payload.get("player_id")
                             print(f"[LANClient] Joined as Player {self.assigned_player_id + 1}")
+                        elif p_type == MSG_LOBBY_STATE:
+                            with self.lock:
+                                slots = payload.get("slots", {})
+                                for k, v in slots.items():
+                                    self.lobby_slots[int(k)] = v
+                                self.host_ip = payload.get("host_ip", self.host_ip)
+                        elif p_type == MSG_CHAT:
+                            with self.lock:
+                                self.chat_history.append(payload)
+                                if len(self.chat_history) > 30:
+                                    self.chat_history.pop(0)
+                        elif p_type == MSG_MATCH_START:
+                            with self.lock:
+                                self.match_started = True
                         elif p_type == MSG_STATE_SYNC:
                             with self.lock:
                                 self.latest_state = payload
@@ -109,10 +138,45 @@ class LANClient:
         except Exception:
             self.is_connected = False
 
+    def send_ready_toggle(self, is_ready=None):
+        """Sends ready status toggle to host."""
+        if not self.is_connected or not self.sock:
+            return
+        try:
+            packet = encode_packet(MSG_READY_TOGGLE, {"ready": is_ready})
+            self.sock.sendall(packet)
+        except Exception:
+            self.is_connected = False
+
+    def send_chat(self, text):
+        """Sends chat message to host to broadcast."""
+        if not self.is_connected or not self.sock:
+            return
+        try:
+            packet = encode_packet(MSG_CHAT, {"message": text})
+            self.sock.sendall(packet)
+        except Exception:
+            self.is_connected = False
+
     def get_latest_state(self):
         """Returns the most recent replicated game state."""
         with self.lock:
             return self.latest_state
+
+    def get_lobby_slots(self):
+        """Returns the current lobby slots snapshot."""
+        with self.lock:
+            return dict(self.lobby_slots)
+
+    def get_chat_history(self):
+        """Returns the chat log."""
+        with self.lock:
+            return list(self.chat_history)
+
+    def is_match_started(self):
+        """Checks whether the host triggered match start."""
+        with self.lock:
+            return self.match_started
 
     def disconnect(self):
         """Closes connection."""

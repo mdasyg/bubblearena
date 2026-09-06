@@ -8,9 +8,9 @@ import math
 from constants import (
     SCREEN_WIDTH, SCREEN_HEIGHT, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, FPS, TITLE,
     STATE_MENU, STATE_MODE_SELECT, STATE_LEVEL_SELECT, STATE_LOBBY,
-    STATE_PLAYING, STATE_PAUSED, STATE_GAMEOVER, STATE_VICTORY, STATE_CONTROLS,
+    STATE_PLAYING, STATE_PAUSED, STATE_GAMEOVER, STATE_VICTORY, STATE_CONTROLS, STATE_LAN_ROOM,
     MODE_FFA, MODE_TEAM, MODE_CTF, GAME_MODES, PLAYER_COLORS,
-    COLOR_GOLD, COLOR_RED, COLOR_GREEN
+    COLOR_GOLD, COLOR_RED, COLOR_GREEN, DEFAULT_PORT
 )
 from engine.sound import SoundManager
 from engine.sprites import SpriteManager
@@ -27,7 +27,7 @@ from modes.team_mode import TeamMode
 from modes.ctf_mode import CTFMode
 from ui.hud import HUD
 from ui.menu import MenuSystem
-from network.lan_server import LANServer
+from network.lan_server import LANServer, get_available_network_interfaces
 from network.lan_client import LANClient
 
 class GameEngine:
@@ -39,9 +39,9 @@ class GameEngine:
         self.window = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         self.virtual_screen = pygame.Surface((VIRTUAL_WIDTH, VIRTUAL_HEIGHT))
         self.clock = pygame.time.Clock()
-        self.running = True
+        self.is_running = True
 
-        # Systems
+        # Subsystems
         self.sound_mgr = SoundManager()
         self.sprite_mgr = SpriteManager()
         self.particle_mgr = ParticleManager()
@@ -50,13 +50,24 @@ class GameEngine:
         self.hud = HUD()
         self.menu = MenuSystem()
 
-        # Network
+        # Network & Interfaces
         self.lan_server = None
         self.lan_client = None
         self.is_lan_host = False
         self.is_lan_client = False
         self.found_hosts = []
         self.net_status_msg = ""
+        self.net_interfaces = get_available_network_interfaces()
+        self.selected_iface_idx = 0
+        self.lan_chat_input = ""
+        self.is_chat_active = False
+        self.room_slots = {
+            0: {"name": "Host (P1)", "type": "human", "ready": False},
+            1: {"name": "Open Slot", "type": "open", "ready": False},
+            2: {"name": "Open Slot", "type": "open", "ready": False},
+            3: {"name": "Open Slot", "type": "open", "ready": False},
+        }
+        self.room_chat_history = []
 
         # Match setup
         self.state = STATE_MENU
@@ -219,19 +230,36 @@ class GameEngine:
                     self.state = STATE_MENU
 
             elif self.state == STATE_LOBBY:
-                action = self.menu.handle_navigation(event, 4)
+                if event.type == pygame.KEYDOWN and self.menu.selected_idx == 0:
+                    if event.key in (pygame.K_LEFT, pygame.K_a):
+                        if self.net_interfaces:
+                            self.selected_iface_idx = (self.selected_iface_idx - 1) % len(self.net_interfaces)
+                            self.sound_mgr.play_sfx("select")
+                    elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                        if self.net_interfaces:
+                            self.selected_iface_idx = (self.selected_iface_idx + 1) % len(self.net_interfaces)
+                            self.sound_mgr.play_sfx("select")
+
+                action = self.menu.handle_navigation(event, 5)
                 if action == "MOVE":
                     self.sound_mgr.play_sfx("select")
                 elif action == "SELECT":
                     idx = self.menu.selected_idx
-                    if idx == 0:  # Host Match
+                    if idx == 0:  # Cycle Interface
+                        if self.net_interfaces:
+                            self.selected_iface_idx = (self.selected_iface_idx + 1) % len(self.net_interfaces)
+                            self.sound_mgr.play_sfx("select")
+                    elif idx == 1:  # Host Match -> Enter LAN Room Lobby
+                        selected_ip = self.net_interfaces[self.selected_iface_idx] if self.net_interfaces else "127.0.0.1"
                         if not self.lan_server:
-                            self.lan_server = LANServer()
+                            self.lan_server = LANServer(selected_ip=selected_ip)
                             self.lan_server.start()
-                            self.is_lan_host = True
-                            self.net_status_msg = f"Hosting on {self.lan_server.get_local_ip()}! Starting match..."
-                            self.start_match()
-                    elif idx == 1:  # Auto-Discover
+                        self.is_lan_host = True
+                        self.is_lan_client = False
+                        self.state = STATE_LAN_ROOM
+                        self.net_status_msg = f"Hosting on {selected_ip}:{DEFAULT_PORT}"
+                        self.sound_mgr.play_sfx("select")
+                    elif idx == 2:  # Auto-Discover
                         self.net_status_msg = "Scanning LAN for hosts..."
                         self.found_hosts = LANClient.discover_hosts(timeout=1.5)
                         if self.found_hosts:
@@ -239,24 +267,75 @@ class GameEngine:
                             self.lan_client = LANClient()
                             if self.lan_client.connect(host_ip, host_port):
                                 self.is_lan_client = True
+                                self.is_lan_host = False
+                                self.state = STATE_LAN_ROOM
                                 self.net_status_msg = f"Connected to {host_ip}:{host_port}!"
-                                self.start_match()
+                                self.sound_mgr.play_sfx("select")
                             else:
                                 self.net_status_msg = "Connection failed."
                         else:
                             self.net_status_msg = "No LAN hosts found."
-                    elif idx == 2:  # Direct Connect 127.0.0.1
+                    elif idx == 3:  # Direct Connect 127.0.0.1
                         self.lan_client = LANClient()
                         if self.lan_client.connect("127.0.0.1"):
                             self.is_lan_client = True
+                            self.is_lan_host = False
+                            self.state = STATE_LAN_ROOM
                             self.net_status_msg = "Connected to local server!"
-                            self.start_match()
+                            self.sound_mgr.play_sfx("select")
                         else:
                             self.net_status_msg = "Could not connect to 127.0.0.1"
-                    elif idx == 3:  # Return
+                    elif idx == 4:  # Return
                         self.state = STATE_MENU
                 elif action == "BACK":
                     self.state = STATE_MENU
+
+            elif self.state == STATE_LAN_ROOM:
+                if event.type == pygame.KEYDOWN:
+                    if self.is_chat_active:
+                        if event.key == pygame.K_ESCAPE:
+                            self.is_chat_active = False
+                        elif event.key == pygame.K_RETURN:
+                            # Send broadcast chat
+                            if self.lan_chat_input.strip():
+                                if self.is_lan_host and self.lan_server:
+                                    self.lan_server.send_host_chat(self.lan_chat_input)
+                                elif self.is_lan_client and self.lan_client:
+                                    self.lan_client.send_chat(self.lan_chat_input)
+                                self.lan_chat_input = ""
+                                self.sound_mgr.play_sfx("select")
+                        elif event.key == pygame.K_BACKSPACE:
+                            self.lan_chat_input = self.lan_chat_input[:-1]
+                        else:
+                            if event.unicode and len(self.lan_chat_input) < 32 and event.unicode.isprintable():
+                                self.lan_chat_input += event.unicode
+                    else:
+                        if event.key in (pygame.K_TAB, pygame.K_c):
+                            self.is_chat_active = True
+                        elif event.key in (pygame.K_r, pygame.K_SPACE):
+                            # Toggle Ready
+                            if self.is_lan_host and self.lan_server:
+                                self.lan_server.toggle_host_ready()
+                                self.sound_mgr.play_sfx("select")
+                            elif self.is_lan_client and self.lan_client:
+                                self.lan_client.send_ready_toggle()
+                                self.sound_mgr.play_sfx("select")
+                        elif self.is_lan_host and event.key == pygame.K_b:
+                            # Host shortcut to fill open slots with bots
+                            if self.lan_server:
+                                self.lan_server.fill_all_bots()
+                                self.sound_mgr.play_sfx("select")
+                        elif event.key == pygame.K_ESCAPE:
+                            # Leave LAN Room
+                            if self.is_lan_host and self.lan_server:
+                                self.lan_server.stop()
+                                self.lan_server = None
+                                self.is_lan_host = False
+                            if self.is_lan_client and self.lan_client:
+                                self.lan_client.disconnect()
+                                self.lan_client = None
+                                self.is_lan_client = False
+                            self.state = STATE_LOBBY
 
             elif self.state == STATE_PLAYING:
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -279,48 +358,6 @@ class GameEngine:
                     elif event.key == pygame.K_ESCAPE:
                         self.sound_mgr.play_sfx("select")
                         self.state = STATE_MENU
-
-    def update(self, dt):
-        """Updates game state, physics, collisions, and network sync."""
-        if self.state != STATE_PLAYING:
-            return
-
-        platforms = self.level_mgr.platforms
-
-        # 1. LAN Network Input Synchronization
-        if self.is_lan_host and self.lan_server:
-            client_inputs = self.lan_server.get_client_inputs()
-            for p_id, acts in client_inputs.items():
-                self.input_handler.set_remote_input(p_id, acts)
-
-        # 2. Player Input & Physics
-        spawned_bubbles = []
-        for p in self.players:
-            if p.is_trapped:
-                # Check struggle inputs
-                actions = self.input_handler.poll_inputs(p.id, is_bot=p.is_bot, bot_action=p.bot_action)
-                if actions.get("shoot") or actions.get("struggle") or actions.get("jump"):
-                    # Find player's trapped bubble
-                    for tb in self.trapped_bubbles:
-                        if tb.trapped_player.id == p.id:
-                            tb.register_struggle()
-                            break
-            else:
-                # Bot AI or Human Input
-                if p.is_bot:
-                    bot_act = p.update_bot_ai(dt, self.players, self.bubbles, self.trapped_bubbles, self.flag)
-                    p.handle_input(bot_act, dt, spawned_bubbles, self.sound_mgr, self.particle_mgr)
-                else:
-                    user_act = self.input_handler.poll_inputs(p.id)
-                    p.handle_input(user_act, dt, spawned_bubbles, self.sound_mgr, self.particle_mgr)
-
-                    # If client connected over LAN, transmit input
-                    if self.is_lan_client and self.lan_client and p.id == self.lan_client.assigned_player_id:
-                        self.lan_client.send_input(user_act)
-
-            p.update(dt, platforms, self.bubbles, self.trapped_bubbles, self.sound_mgr, self.particle_mgr)
-
-        self.bubbles.extend(spawned_bubbles)
 
     def trigger_chain_pop(self, initial_bubble, popping_player=None):
         """
@@ -378,7 +415,7 @@ class GameEngine:
         for tb in popped_trapped:
             tb.is_alive = False
             if popping_player:
-                result = tb.check_pop_by_player(popping_player, is_team_mode=is_team_mode)
+                result = tb.check_pop_by_player(popping_player, is_team_mode=is_team_mode, force_pop=True)
                 if result:
                     res_type, points = result
                     combo_pts = points + (chain_count * 100)
@@ -396,10 +433,15 @@ class GameEngine:
                         self.particle_mgr.spawn_sparkles(tb.x, tb.y, count=14)
                         self.particle_mgr.add_floating_text(f"RESCUE +{combo_pts}!", tb.x, tb.y - 14, color=COLOR_GREEN)
                         self.sound_mgr.play_sfx("rescue")
+                else:
+                    # Guarantee trapped player is never left orphaned
+                    tb.trapped_player.free_from_bubble(was_rescued=False)
+                    self.particle_mgr.spawn_pop_burst(tb.x, tb.y, count=12)
             else:
                 # Expired or untargeted pop -> free player
                 tb.trapped_player.free_from_bubble(was_rescued=False)
                 self.particle_mgr.spawn_pop_burst(tb.x, tb.y, count=12)
+                self.sound_mgr.play_sfx("pop")
 
         # Big banner if massive chain explosion!
         if chain_count >= 3 and popping_player:
@@ -412,6 +454,31 @@ class GameEngine:
 
     def update(self, dt):
         """Updates game state, physics, collisions, and network sync."""
+        if self.state == STATE_LAN_ROOM:
+            # Synchronize room state and broadcast chat
+            if self.is_lan_host and self.lan_server:
+                self.room_slots = self.lan_server.lobby_slots
+                self.room_chat_history = self.lan_server.chat_history
+
+                # When all 4 players are ready -> auto start the match!
+                if self.lan_server.is_all_players_ready():
+                    self.lan_server.broadcast_match_start()
+                    for i in range(4):
+                        slot = self.lan_server.lobby_slots[i]
+                        self.players[i].is_bot = (slot["type"] == "bot")
+                    self.state = STATE_PLAYING
+                    self.sound_mgr.play_sfx("victory")
+                    self.start_match()
+
+            elif self.is_lan_client and self.lan_client:
+                self.room_slots = self.lan_client.get_lobby_slots()
+                self.room_chat_history = self.lan_client.get_chat_history()
+                if self.lan_client.is_match_started():
+                    self.state = STATE_PLAYING
+                    self.sound_mgr.play_sfx("victory")
+                    self.start_match()
+            return
+
         if self.state != STATE_PLAYING:
             return
 
@@ -502,8 +569,7 @@ class GameEngine:
 
         # Trigger chain pops for empty bubbles
         for b, popper in bubbles_to_pop:
-            if b in self.bubbles:
-                self.trigger_chain_pop(b, popper)
+            self.trigger_chain_pop(b, popper)
 
         # 4. Update Trapped Bubbles & Popping / Rescue Check with Chain Reactions
         active_trapped = []
@@ -531,8 +597,7 @@ class GameEngine:
 
         # Trigger chain pops for trapped bubbles
         for tb, popper in trapped_to_pop:
-            if tb in self.trapped_bubbles or not tb.is_alive:
-                self.trigger_chain_pop(tb, popper)
+            self.trigger_chain_pop(tb, popper)
 
         # 5. Power-Up Spawning & Collection
         self.item_spawn_timer -= dt
@@ -598,10 +663,25 @@ class GameEngine:
             self.menu.draw_controls(self.virtual_screen)
 
         elif self.state == STATE_LOBBY:
-            h_ip = self.lan_server.get_local_ip() if self.lan_server else "127.0.0.1"
+            selected_ip = self.net_interfaces[self.selected_iface_idx] if self.net_interfaces else "127.0.0.1"
             self.menu.draw_lan_lobby(
-                self.virtual_screen, h_ip, self.found_hosts,
-                self.is_lan_host, self.is_lan_client, self.net_status_msg
+                self.virtual_screen, selected_ip, self.net_interfaces,
+                self.selected_iface_idx, self.found_hosts, self.is_lan_host,
+                self.is_lan_client, self.net_status_msg
+            )
+
+        elif self.state == STATE_LAN_ROOM:
+            my_id = 0 if self.is_lan_host else (self.lan_client.assigned_player_id if self.lan_client and self.lan_client.assigned_player_id is not None else 1)
+            self.menu.draw_lan_room_lobby(
+                self.virtual_screen,
+                self.room_slots,
+                self.room_chat_history,
+                self.lan_chat_input,
+                self.is_chat_active,
+                self.is_lan_host,
+                my_id,
+                self.net_status_msg,
+                dt
             )
 
         elif self.state in (STATE_PLAYING, STATE_PAUSED, STATE_VICTORY):

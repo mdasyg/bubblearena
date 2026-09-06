@@ -200,46 +200,184 @@ class MenuSystem:
         footer = self.font_info.render("Press [ENTER] or [ESC] to Return to Menu", True, COLOR_CYAN)
         surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 16)))
 
-    def draw_lan_lobby(self, surface, host_ip, found_hosts, is_hosting, is_connected, status_msg=""):
-        """LAN Multiplayer room screen."""
+    def draw_lan_lobby(self, surface, host_ip, interfaces, iface_idx, found_hosts, is_hosting, is_connected, status_msg=""):
+        """LAN Multiplayer room setup & interface selection screen."""
         surface.fill(COLOR_BLACK)
         title = self.font_title.render("LAN MULTIPLAYER", True, COLOR_GOLD)
         surface.blit(title, title.get_rect(center=(VIRTUAL_WIDTH // 2, 25)))
 
+        current_iface = interfaces[iface_idx] if interfaces and iface_idx < len(interfaces) else host_ip
+
         opts = [
-            f"1. HOST LAN MATCH (Your IP: {host_ip})",
-            "2. AUTO-DISCOVER & JOIN LOCAL HOST",
-            "3. DIRECT CONNECT TO LOCALHOST (127.0.0.1)",
-            "4. RETURN TO MAIN MENU"
+            f"1. NETWORK INTERFACE: < {current_iface} >",
+            f"2. HOST LAN MATCH (Creates 4-Player Lobby)",
+            "3. AUTO-DISCOVER & JOIN LOCAL HOST",
+            "4. DIRECT CONNECT TO LOCALHOST (127.0.0.1)",
+            "5. RETURN TO MAIN MENU"
         ]
 
-        start_y = 65
+        start_y = 60
         for i, opt in enumerate(opts):
             is_sel = (i == self.selected_idx)
             col = COLOR_GOLD if is_sel else COLOR_WHITE
             prefix = ">> " if is_sel else "   "
-            opt_surf = self.font_menu.render(f"{prefix}{opt}", True, col)
-            surface.blit(opt_surf, (40, start_y + i * 26))
+            if i == 0 and is_sel:
+                opt_str = f"{prefix}{opt} [<- / ->]"
+            else:
+                opt_str = f"{prefix}{opt}"
+            opt_surf = self.font_menu.render(opt_str, True, col)
+            surface.blit(opt_surf, (30, start_y + i * 24))
 
         # Status readout
-        st_box = pygame.Rect(40, 185, VIRTUAL_WIDTH - 80, 80)
+        st_box = pygame.Rect(30, 185, VIRTUAL_WIDTH - 60, 80)
         pygame.draw.rect(surface, (25, 30, 45), st_box, border_radius=4)
         pygame.draw.rect(surface, COLOR_CYAN, st_box, 1, border_radius=4)
 
-        st_title = self.font_info.render("NETWORK STATUS / LOBBY:", True, COLOR_CYAN)
-        surface.blit(st_title, (50, 192))
+        st_title = self.font_info.render("NETWORK ADAPTER & STATUS:", True, COLOR_CYAN)
+        surface.blit(st_title, (40, 192))
 
-        status_text = status_msg or ("Hosting match... Waiting for players." if is_hosting else "Ready to host or join.")
+        status_text = status_msg or f"Selected Binding: {current_iface} (Detected {len(interfaces)} local interfaces)"
         msg_surf = self.font_info.render(status_text, True, COLOR_GREEN if is_connected or is_hosting else COLOR_WHITE)
-        surface.blit(msg_surf, (50, 212))
+        surface.blit(msg_surf, (40, 212))
 
         if found_hosts:
             h_str = f"Found LAN Host: {found_hosts[0][0]}:{found_hosts[0][1]}"
             h_surf = self.font_info.render(h_str, True, COLOR_YELLOW)
-            surface.blit(h_surf, (50, 232))
+            surface.blit(h_surf, (40, 232))
 
-        footer = self.font_info.render("[ENTER] Execute Action   [ESC] Return", True, COLOR_GRAY)
-        surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 16)))
+        footer = self.font_info.render("[UP/DOWN] Select Option   [LEFT/RIGHT] Change IP   [ENTER] Select   [ESC] Return", True, COLOR_GRAY)
+        surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 14)))
+
+    def draw_lan_room_lobby(self, surface, slots, chat_history, chat_input, is_chat_active, is_host, my_player_id, status_msg="", dt=0.016):
+        """Dedicated 4-player LAN Room Lobby with Ready check & Broadcast Chat."""
+        self.anim_timer += dt
+        surface.fill(COLOR_BLACK)
+
+        # Title & Room Info
+        title = self.font_title.render("LAN ROOM LOBBY", True, COLOR_GOLD)
+        surface.blit(title, title.get_rect(center=(VIRTUAL_WIDTH // 2, 18)))
+
+        # Subtitle
+        role_str = "ROOM HOST (P1)" if is_host else f"CONNECTED CLIENT (P{my_player_id + 1})"
+        sub = self.font_info.render(f"Role: {role_str} | 4-Player Match Room", True, COLOR_CYAN)
+        surface.blit(sub, sub.get_rect(center=(VIRTUAL_WIDTH // 2, 34)))
+
+        # Left Column: 4 Player Slots (Cards)
+        player_colors = [COLOR_GREEN, COLOR_BLUE, COLOR_YELLOW, COLOR_PINK]
+        card_w = 215
+        card_h = 34
+        start_y = 48
+
+        all_ready = True
+        filled_count = 0
+
+        for slot_idx in range(4):
+            slot = slots.get(slot_idx, {"name": f"Player {slot_idx + 1}", "type": "open", "ready": False})
+            slot_y = start_y + slot_idx * 38
+            card_rect = pygame.Rect(20, slot_y, card_w, card_h)
+
+            # Card background
+            p_col = player_colors[slot_idx]
+            is_me = (slot_idx == my_player_id)
+            bg_col = (30, 35, 55) if not is_me else (45, 50, 75)
+            pygame.draw.rect(surface, bg_col, card_rect, border_radius=4)
+            pygame.draw.rect(surface, p_col if is_me else (70, 75, 95), card_rect, 2 if is_me else 1, border_radius=4)
+
+            # Slot label & Name
+            slot_type = slot.get("type", "open")
+            if slot_type == "open":
+                all_ready = False
+                name_text = f"P{slot_idx + 1}: [OPEN SLOT]"
+                status_text = "WAITING FOR PLAYER..."
+                st_color = COLOR_GRAY
+            elif slot_type == "bot":
+                filled_count += 1
+                name_text = f"P{slot_idx + 1}: {slot.get('name', 'Bot')}"
+                status_text = "[READY (BOT)]"
+                st_color = COLOR_GREEN
+            else:  # human
+                filled_count += 1
+                name_text = f"P{slot_idx + 1}: {slot.get('name', 'Player')}" + (" (YOU)" if is_me else "")
+                is_rdy = slot.get("ready", False)
+                if is_rdy:
+                    status_text = "[READY!]"
+                    st_color = COLOR_GREEN
+                else:
+                    all_ready = False
+                    status_text = "[NOT READY]"
+                    st_color = COLOR_RED
+
+            name_surf = self.font_info.render(name_text, True, p_col)
+            surface.blit(name_surf, (28, slot_y + 6))
+
+            st_surf = self.font_info.render(status_text, True, st_color)
+            surface.blit(st_surf, (28, slot_y + 19))
+
+        # Banner under slots
+        banner_rect = pygame.Rect(20, 202, card_w, 44)
+        if filled_count == 4 and all_ready:
+            pulse = int(math.sin(self.anim_timer * 6.0) * 40 + 200)
+            pygame.draw.rect(surface, (20, 80, 40), banner_rect, border_radius=4)
+            pygame.draw.rect(surface, (50, pulse, 50), banner_rect, 2, border_radius=4)
+            start_banner = self.font_menu.render("ALL 4 PLAYERS READY!", True, COLOR_YELLOW)
+            surface.blit(start_banner, start_banner.get_rect(center=(banner_rect.centerx, banner_rect.centery - 7)))
+            auto_lbl = self.font_info.render("Starting match automatically...", True, COLOR_WHITE)
+            surface.blit(auto_lbl, auto_lbl.get_rect(center=(banner_rect.centerx, banner_rect.centery + 9)))
+        else:
+            pygame.draw.rect(surface, (20, 25, 40), banner_rect, border_radius=4)
+            pygame.draw.rect(surface, COLOR_DARK_GRAY, banner_rect, 1, border_radius=4)
+            need_str = f"Slots: {filled_count}/4 Filled & Ready"
+            need_surf = self.font_info.render(need_str, True, COLOR_GOLD)
+            surface.blit(need_surf, (28, 210))
+            act_str = "Press [R] / [SPACE] to Toggle Ready"
+            act_surf = self.font_info.render(act_str, True, COLOR_WHITE)
+            surface.blit(act_surf, (28, 226))
+
+        # Right Column: Broadcast Chat Box
+        chat_x = 245
+        chat_w = VIRTUAL_WIDTH - chat_x - 20
+        chat_h = 198
+        chat_rect = pygame.Rect(chat_x, start_y, chat_w, chat_h)
+        pygame.draw.rect(surface, (15, 18, 30), chat_rect, border_radius=4)
+        pygame.draw.rect(surface, COLOR_CYAN if is_chat_active else (60, 65, 85), chat_rect, 2 if is_chat_active else 1, border_radius=4)
+
+        # Chat Title
+        chat_title = self.font_info.render("BROADCAST CHAT (ALL PLAYERS)", True, COLOR_CYAN)
+        surface.blit(chat_title, (chat_x + 8, start_y + 6))
+        pygame.draw.line(surface, (40, 45, 65), (chat_x + 5, start_y + 20), (chat_x + chat_w - 5, start_y + 20), 1)
+
+        # Messages area (last 7 messages)
+        recent_chats = chat_history[-7:]
+        msg_y = start_y + 24
+        for ch in recent_chats:
+            p_id = ch.get("player_id", 0)
+            col = player_colors[p_id % 4]
+            sender = ch.get("sender", "Player")
+            msg = ch.get("message", "")
+            prefix_surf = self.font_info.render(f"{sender}: ", True, col)
+            surface.blit(prefix_surf, (chat_x + 8, msg_y))
+            prefix_w = prefix_surf.get_width()
+            text_surf = self.font_info.render(msg[:26], True, COLOR_WHITE)
+            surface.blit(text_surf, (chat_x + 8 + prefix_w, msg_y))
+            msg_y += 18
+
+        # Chat Input Field (bottom of chat box)
+        input_rect = pygame.Rect(chat_x + 6, start_y + chat_h - 26, chat_w - 12, 20)
+        pygame.draw.rect(surface, (25, 30, 50) if is_chat_active else (20, 22, 35), input_rect, border_radius=3)
+        pygame.draw.rect(surface, COLOR_GOLD if is_chat_active else COLOR_GRAY, input_rect, 1, border_radius=3)
+
+        cursor = "_" if (is_chat_active and int(self.anim_timer * 3) % 2 == 0) else ""
+        placeholder = "Press [TAB] or [C] to chat..." if not is_chat_active and not chat_input else f"{chat_input}{cursor}"
+        in_col = COLOR_WHITE if (is_chat_active or chat_input) else COLOR_GRAY
+        input_surf = self.font_info.render(f"> {placeholder}", True, in_col)
+        surface.blit(input_surf, (input_rect.x + 5, input_rect.y + 4))
+
+        # Bottom Controls Footer
+        host_controls = "   [B] Fill Bots" if is_host else ""
+        chat_hint = "[ESC] Unfocus Chat" if is_chat_active else "[TAB/C] Focus Chat"
+        footer_str = f"[R/SPACE] Toggle Ready   {chat_hint}{host_controls}   [ESC] Exit"
+        footer = self.font_info.render(footer_str, True, COLOR_GRAY)
+        surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 12)))
 
     def draw_victory_screen(self, surface, winner_info, players, mode_name, dt):
         """End-of-match celebration and scoreboard."""

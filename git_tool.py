@@ -27,6 +27,10 @@ def add_all():
             dirs.remove(".git")
         if "__pycache__" in dirs:
             dirs.remove("__pycache__")
+        if "build" in dirs:
+            dirs.remove("build")
+        if "dist" in dirs:
+            dirs.remove("dist")
         for f in files:
             rel_path = os.path.relpath(os.path.join(root, f), ".").replace("\\", "/")
             all_files.append(rel_path)
