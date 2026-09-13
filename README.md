@@ -174,14 +174,140 @@ Items spawn randomly during matches or drop from popped bubble chain explosions:
 
 ---
 
+## 🖥️ Headless Dedicated Console Server (Linux, FreeBSD & Windows)
+
+Bubble Arena includes a standalone, 100% headless dedicated server (`bubblearena_server.py`) powered by the unified [`network/server_core.py`](file:///c:/Temp/BubbleArena/network/server_core.py) library.
+
+### 💡 Key Design & Features:
+- **Zero GUI / Audio Dependencies**: Pure Python standard library (`socket`, `select`, `threading`, `argparse`, `signal`, `json`). Requires no Pygame, SDL, X11, Wayland, or sound drivers. Ideal for remote Linux VPS, FreeBSD jails, cloud servers, or Docker containers.
+- **Dedicated Slot Allocation**: All 4 player slots (Slots 0..3) are available for remote clients to join (unlike listen-hosts where Slot 0 is reserved for local player P1).
+- **Live Ping & Latency Monitoring**: Automatically calculates round-trip latency in milliseconds ($RTT$) for each connected client and displays live metrics in the console.
+- **Interactive Managerial Console Shell**: Real-time CLI administrative controls (`status`, `kick`, `ban`, `mode`, `level`, `bot`, `say`, etc.).
+- **IP Blacklist / Ban System**: Automatically refuses connections from banned IPs and disconnects active clients instantly.
+
+---
+
+### 🚀 Starting the Dedicated Server
+
+```bash
+# Listen on all interfaces (0.0.0.0) on default port 28888 in Free-For-All mode
+python bubblearena_server.py
+
+# Listen on a specific interface IP and custom port
+python bubblearena_server.py -i 192.168.1.100 -p 29999 -m team -l 5
+
+# Public Internet server (disables local UDP discovery beacon)
+python bubblearena_server.py -i 0.0.0.0 -p 28888 -m ctf --no-beacon
+```
+
+#### Command-Line Arguments:
+| Flag | Description | Default |
+| :--- | :--- | :--- |
+| **`-i, --interface`** | Interface IP to bind (`0.0.0.0` for all interfaces, `127.0.0.1`, or specific IP) | `0.0.0.0` |
+| **`-p, --port`** | Port number to listen on | `28888` |
+| **`-m, --mode`** | Initial game mode (`ffa`, `team`, `ctf`) | `ffa` |
+| **`-l, --level`** | Initial stage level (`1`..`14`) | `1` |
+| **`--no-beacon`** | Disable UDP LAN discovery beacon (recommended for remote VPS) | Beacon enabled |
+| **`--no-auto-start`** | Disable automatic match launch when all 4 slots are ready | Auto-start enabled |
+
+---
+
+### 🕹️ Administrative Console Commands
+
+When running interactively, administrators have full control over the match and players directly from the terminal prompt (`bubblearena-srv> `):
+
+| Command | Arguments | Description & Example |
+| :--- | :--- | :--- |
+| **`status`** / **`st`** | *(none)* | Displays comprehensive ASCII dashboard (uptime, mode, level, all 4 slots with IP, ping, status). |
+| **`players`** / **`pl`** | *(none)* | Compact list of connected players, IP:port, and ping latency in milliseconds. |
+| **`kick`** | `<slot 1-4 \| name> [reason]` | Kicks a player and resets their slot. Example: `kick 2 AFK in lobby` |
+| **`ban`** | `<ip_address>` | Blacklists an IP address and immediately disconnects matching clients. Example: `ban 192.168.1.50` |
+| **`unban`** | `<ip_address>` | Removes an IP address from the blacklist. Example: `unban 192.168.1.50` |
+| **`bans`** | *(none)* | Lists all currently blacklisted IP addresses. |
+| **`mode`** | `<ffa \| team \| ctf>` | Changes the active game mode and synchronizes with all clients in the lobby. |
+| **`level`** | `<1..14>` | Sets the active arena stage (1-14). Example: `level 4` |
+| **`bot add`** | `[slot 1-4] [personality]` | Adds a bot (`Aggressive`, `Passive`, `Standard`) to an open slot. Example: `bot add 2 Aggressive` |
+| **`bot kick`** | `<slot 1-4>` | Removes a bot from the specified slot. Example: `bot kick 2` |
+| **`bots fill`** | *(none)* | Immediately fills all open slots with random personality CPU bots. |
+| **`say`** | `<message>` | Broadcasts a `[SERVER]` announcement to all players in the lobby chat. |
+| **`start`** | *(none)* | Force-starts the match immediately for all connected players. |
+| **`autostart`** | `<on \| off>` | Toggles automatic match start when all 4 slots become ready. |
+| **`interfaces`** | *(none)* | Displays all detected local network interfaces and IPs. |
+| **`clear`** | *(none)* | Clears the terminal screen. |
+| **`help`** / **`?`** | *(none)* | Displays the command reference guide. |
+| **`stop`** / **`quit`** | *(none)* | Gracefully notifies all clients and shuts down the server. |
+
+---
+
+### 🌐 Connecting Clients to Dedicated Server (LAN or Internet)
+
+#### Option 1: Command-Line Launch
+Launch the client and connect directly to a remote dedicated server over LAN or Internet:
+```bash
+python main.py --join 83.212.19.100:28888
+# or
+./Releases/BubbleArena.exe --join 83.212.19.100:28888
+```
+
+#### Option 2: In-Game Menu
+1. From the title screen, select **LAN MULTIPLAYER**.
+2. Select **4. DIRECT CONNECT TO IP/HOST: < 127.0.0.1 >**.
+3. Use `[<- / ->]` to cycle through discovered hosts, local interfaces, or press `ENTER` to connect directly to the target server.
+
+---
+
+### 🐧 Running as a Linux Systemd Service or FreeBSD Daemon
+
+#### Systemd Service Unit (`/etc/systemd/system/bubblearena.service`):
+```ini
+[Unit]
+Description=Bubble Arena Dedicated Headless Server
+After=network.target
+
+[Service]
+Type=simple
+User=gameserver
+WorkingDirectory=/opt/BubbleArena
+ExecStart=/usr/bin/python3 /opt/BubbleArena/bubblearena_server.py -i 0.0.0.0 -p 28888 --no-beacon
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start the service:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now bubblearena
+sudo systemctl status bubblearena
+```
+
+#### FreeBSD / Background Execution via `tmux` or `nohup`:
+```bash
+# Using tmux (recommended for remote console access)
+tmux new -s bubblearena
+python3 bubblearena_server.py -i 0.0.0.0 -p 28888 --no-beacon
+# Detach with Ctrl+B then D, reattach with: tmux attach -t bubblearena
+
+# Or using nohup in background:
+nohup python3 bubblearena_server.py -i 0.0.0.0 -p 28888 --no-beacon > server.log 2>&1 &
+```
+
+---
+
 ## 📁 Codebase Architecture & Class Hierarchy
 
 ```
 BubbleArena/
-├── main.py                  # Application entrypoint & CLI argument parser
+├── main.py                  # Client entrypoint & CLI argument parser
+├── bubblearena_server.py    # Standalone headless dedicated console server (Linux/FreeBSD/Windows)
 ├── constants.py             # Global constants, physics, colors, keybindings, states
+├── Releases/
+│   └── BubbleArena.exe      # Pre-packaged standalone Windows release binary
 ├── engine/
 │   ├── game.py              # GameEngine: State machine, loop, collisions, rendering
+│   ├── bot_ai.py            # BotAI: Personalities, navigation, flag & bonus tactics
 │   ├── input_handler.py     # Keyboard & Gamepad polling, jump buffer, coyote timers
 │   ├── sprites.py           # SpriteManager: Pixel-art generator & sheet slicer
 │   ├── sound.py             # SoundManager: Procedural 8-bit sound synthesizer & BGM
@@ -202,12 +328,13 @@ BubbleArena/
 │   └── ctf_mode.py          # CTFMode: Flag-holding scoring & drop rules
 ├── network/
 │   ├── protocol.py          # JSON newline-delimited packet serialization
-│   ├── lan_server.py        # Non-blocking TCP server, lobby hub & UDP beacon
-│   └── lan_client.py        # Non-blocking TCP client & discovery receiver
+│   ├── server_core.py       # BaseBubbleServer: Unified network core, ping latency, kick/ban
+│   ├── lan_server.py        # LANServer: Listen-host subclass for local lobbies
+│   └── lan_client.py        # LANClient: Non-blocking client & ping/pong latency responder
 ├── ui/
 │   ├── hud.py               # HUD: Scores, timer, level name, hurry-up banners
 │   └── menu.py              # MenuSystem: Title, mode select, level select, lobbies
-└── tests/                   # Automated unittest suite (32 tests)
+└── tests/                   # Automated unittest suite (56 tests)
 ```
 
 ---
@@ -231,15 +358,20 @@ python main.py --bots --mode ffa --level 1
 ### 3. Build Standalone Windows Executable
 To package the game as a single standalone `.exe` with all assets included:
 ```bash
+# Automated batch script (builds and outputs to Releases\BubbleArena.exe)
+build_exe.bat
+
+# Or manual PyInstaller command:
 pyinstaller --noconfirm --clean --onefile --name "BubbleArena" --add-data "assets;assets" --add-data "Animation;Animation" --collect-all pygame main.py
 ```
-The resulting binary is generated in `dist/BubbleArena.exe`.
+The official release executable is located in:
+**`Releases/BubbleArena.exe`**
 
 ---
 
 ## 🧪 Automated Test Suite
 
-Bubble Arena includes a comprehensive suite of 32 automated unit and integration tests:
+Bubble Arena includes a comprehensive suite of 56 automated unit and integration tests:
 
 ```bash
 python -m unittest discover tests
@@ -249,6 +381,7 @@ python -m unittest discover tests
 - **`test_game.py`**: Physics, platform collisions, jump mechanics, one-way floors, scoring.
 - **`test_boundaries_and_controls.py`**: Screen border containment, multi-key bindings, jump buffering.
 - **`test_lan_lobby.py`**: Network adapter enumeration, ready state machine, broadcast chat, and trapped bubble elimination state.
+- **`test_dedicated_server.py`**: Headless dedicated server (`bubblearena_server.py`), CLI argument parser, 4-player dedicated slot allocation, ping/latency tracking, administrative commands (`status`, `kick`, `ban`, `mode`, `level`, `bot`, `say`), and IP blacklist rejection.
 - **`test_platform_edge.py`**: Platform edge boundary alignment and precision landing.
 - **`test_sprites.py`**: Sprite sheet parsing and character frame animations.
 - **`test_simulation.py`**: 150-frame end-to-end game simulation across all 3 game modes.

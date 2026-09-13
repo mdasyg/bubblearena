@@ -69,6 +69,8 @@ class GameEngine:
             3: {"name": "Open Slot", "type": "open", "ready": False},
         }
         self.room_chat_history = []
+        self.target_remote_ip = "127.0.0.1"
+        self.remote_ip_idx = 0
 
         # Match setup
         self.state = STATE_MENU
@@ -252,14 +254,24 @@ class GameEngine:
                     self.state = STATE_MENU
 
             elif self.state == STATE_LOBBY:
-                if event.type == pygame.KEYDOWN and self.menu.selected_idx == 0:
+                if event.type == pygame.KEYDOWN:
                     if event.key in (pygame.K_LEFT, pygame.K_a):
-                        if self.net_interfaces:
+                        if self.menu.selected_idx == 0 and self.net_interfaces:
                             self.selected_iface_idx = (self.selected_iface_idx - 1) % len(self.net_interfaces)
                             self.sound_mgr.play_sfx("select")
+                        elif self.menu.selected_idx == 3:
+                            targets = ["127.0.0.1"] + [h[0] for h in self.found_hosts if h[0] != "127.0.0.1"] + [ip for ip in self.net_interfaces if ip != "127.0.0.1"]
+                            self.remote_ip_idx = (self.remote_ip_idx - 1) % len(targets)
+                            self.target_remote_ip = targets[self.remote_ip_idx]
+                            self.sound_mgr.play_sfx("select")
                     elif event.key in (pygame.K_RIGHT, pygame.K_d):
-                        if self.net_interfaces:
+                        if self.menu.selected_idx == 0 and self.net_interfaces:
                             self.selected_iface_idx = (self.selected_iface_idx + 1) % len(self.net_interfaces)
+                            self.sound_mgr.play_sfx("select")
+                        elif self.menu.selected_idx == 3:
+                            targets = ["127.0.0.1"] + [h[0] for h in self.found_hosts if h[0] != "127.0.0.1"] + [ip for ip in self.net_interfaces if ip != "127.0.0.1"]
+                            self.remote_ip_idx = (self.remote_ip_idx + 1) % len(targets)
+                            self.target_remote_ip = targets[self.remote_ip_idx]
                             self.sound_mgr.play_sfx("select")
 
                 action = self.menu.handle_navigation(event, 5)
@@ -286,6 +298,7 @@ class GameEngine:
                         self.found_hosts = LANClient.discover_hosts(timeout=1.5)
                         if self.found_hosts:
                             host_ip, host_port = self.found_hosts[0]
+                            self.target_remote_ip = f"{host_ip}:{host_port}"
                             self.lan_client = LANClient()
                             if self.lan_client.connect(host_ip, host_port):
                                 self.is_lan_client = True
@@ -297,16 +310,18 @@ class GameEngine:
                                 self.net_status_msg = "Connection failed."
                         else:
                             self.net_status_msg = "No LAN hosts found."
-                    elif idx == 3:  # Direct Connect 127.0.0.1
+                    elif idx == 3:  # Direct Connect to target_remote_ip (LAN or Internet)
                         self.lan_client = LANClient()
-                        if self.lan_client.connect("127.0.0.1"):
+                        target = self.target_remote_ip
+                        if self.lan_client.connect(target):
                             self.is_lan_client = True
                             self.is_lan_host = False
                             self.state = STATE_LAN_ROOM
-                            self.net_status_msg = "Connected to local server!"
+                            self.net_status_msg = f"Connected to {target}!"
                             self.sound_mgr.play_sfx("select")
                         else:
-                            self.net_status_msg = "Could not connect to 127.0.0.1"
+                            err = getattr(self.lan_client, "kick_reason", None) or f"Could not connect to {target}"
+                            self.net_status_msg = err
                     elif idx == 4:  # Return
                         self.state = STATE_MENU
                 elif action == "BACK":
@@ -505,6 +520,14 @@ class GameEngine:
                     self.start_match()
 
             elif self.is_lan_client and self.lan_client:
+                if not self.lan_client.is_connected:
+                    reason = getattr(self.lan_client, "kick_reason", None) or "Disconnected from server."
+                    self.net_status_msg = f"[DISCONNECT] {reason}"
+                    self.lan_client = None
+                    self.is_lan_client = False
+                    self.state = STATE_LOBBY
+                    return
+
                 self.room_slots = self.lan_client.get_lobby_slots()
                 self.room_chat_history = self.lan_client.get_chat_history()
                 if self.lan_client.is_match_started():
@@ -717,7 +740,8 @@ class GameEngine:
             self.menu.draw_lan_lobby(
                 self.virtual_screen, selected_ip, self.net_interfaces,
                 self.selected_iface_idx, self.found_hosts, self.is_lan_host,
-                self.is_lan_client, self.net_status_msg
+                self.is_lan_client, self.net_status_msg,
+                target_remote_ip=getattr(self, "target_remote_ip", "127.0.0.1")
             )
 
         elif self.state == STATE_LAN_ROOM:

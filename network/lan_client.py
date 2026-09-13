@@ -5,11 +5,12 @@ import time
 from constants import DEFAULT_PORT, BROADCAST_PORT, DISCOVERY_RESPONSE, MODE_FFA
 from network.protocol import (
     encode_packet, parse_packets, MSG_INPUT, MSG_JOIN_ACCEPT,
-    MSG_STATE_SYNC, MSG_READY_TOGGLE, MSG_LOBBY_STATE, MSG_CHAT, MSG_MATCH_START
+    MSG_STATE_SYNC, MSG_READY_TOGGLE, MSG_LOBBY_STATE, MSG_CHAT, MSG_MATCH_START,
+    MSG_PING, MSG_PONG, MSG_KICK, MSG_SERVER_ANNOUNCE
 )
 
 class LANClient:
-    """Connects to a LAN host, sends local player controls, and receives replicated state/lobby sync."""
+    """Connects to a LAN host or dedicated server over Internet, sends inputs, and receives replicated state/lobby sync."""
     def __init__(self):
         self.sock = None
         self.assigned_player_id = None
@@ -19,6 +20,7 @@ class LANClient:
         self.recv_buffer = b""
         self.latest_state = None
         self.lock = threading.Lock()
+        self.kick_reason = None
 
         # Lobby State
         self.lobby_slots = {
@@ -66,8 +68,13 @@ class LANClient:
         return found_hosts
 
     def connect(self, host_ip, port=DEFAULT_PORT):
-        """Establishes TCP connection to LAN host."""
+        """Establishes TCP connection to LAN host or Internet dedicated server."""
         try:
+            if ":" in host_ip:
+                parts = host_ip.split(":", 1)
+                host_ip = parts[0]
+                port = int(parts[1])
+
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.settimeout(4.0)
             self.sock.connect((host_ip, port))
@@ -77,6 +84,7 @@ class LANClient:
             self.match_started = False
             self.host_ip = host_ip
             self.host_port = port
+            self.kick_reason = None
 
             self.receive_thread = threading.Thread(target=self._run_receiver, daemon=True)
             self.receive_thread.start()
@@ -126,6 +134,19 @@ class LANClient:
                         elif p_type == MSG_STATE_SYNC:
                             with self.lock:
                                 self.latest_state = payload
+                        elif p_type == MSG_PING:
+                            # Respond to latency ping immediately with pong
+                            try:
+                                pong_pkt = encode_packet(MSG_PONG, {"t0": payload.get("t0", 0.0)})
+                                self.sock.sendall(pong_pkt)
+                            except Exception:
+                                pass
+                        elif p_type == MSG_KICK:
+                            reason = payload.get("reason", "Kicked by server administrator")
+                            self.kick_reason = reason
+                            print(f"[LANClient] Kicked from server: {reason}")
+                            self.is_connected = False
+                            break
             except Exception as e:
                 if self.is_running:
                     print(f"[LANClient] Receiver notice: {e}")
