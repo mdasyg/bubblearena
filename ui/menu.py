@@ -25,6 +25,7 @@ class MenuSystem:
             "START LOCAL MATCH",
             "SELECT GAME MODE",
             "SELECT LEVEL",
+            "GAME SETTINGS",
             "LAN MULTIPLAYER",
             "HOW TO PLAY / CONTROLS",
             "QUIT"
@@ -133,32 +134,78 @@ class MenuSystem:
         surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 16)))
 
     def draw_level_select(self, surface, level_manager, dt):
-        """Level selection screen browsing all 10 levels."""
+        """Level selection screen browsing all 14 levels in a balanced 2-column grid."""
         self.anim_timer += dt
         surface.fill(COLOR_BLACK)
 
         title = self.font_title.render("SELECT ARENA LEVEL", True, COLOR_GOLD)
-        surface.blit(title, title.get_rect(center=(VIRTUAL_WIDTH // 2, 30)))
+        surface.blit(title, title.get_rect(center=(VIRTUAL_WIDTH // 2, 22)))
 
         count = level_manager.get_level_count()
-        start_y = 65
+        rows_per_col = (count + 1) // 2
+        start_y = 44
+        card_w = VIRTUAL_WIDTH // 2 - 32
+        card_h = 27
+
         for i in range(count):
             lvl = level_manager.levels[i]
             is_sel = (i == self.selected_idx)
             col = COLOR_GOLD if is_sel else COLOR_WHITE
 
-            # 2 columns of 5 levels
-            col_x = 30 if i < 5 else VIRTUAL_WIDTH // 2 + 10
-            row_y = start_y + (i % 5) * 36
-            card_rect = pygame.Rect(col_x, row_y, VIRTUAL_WIDTH // 2 - 40, 30)
+            col_idx = 0 if i < rows_per_col else 1
+            row_idx = i if col_idx == 0 else (i - rows_per_col)
+            col_x = 24 if col_idx == 0 else VIRTUAL_WIDTH // 2 + 8
+            row_y = start_y + row_idx * 33
+            card_rect = pygame.Rect(col_x, row_y, card_w, card_h)
 
             pygame.draw.rect(surface, (30, 35, 55) if not is_sel else (60, 60, 100), card_rect, border_radius=3)
             pygame.draw.rect(surface, col, card_rect, 2 if is_sel else 1, border_radius=3)
 
             lvl_surf = self.font_info.render(lvl["name"], True, col)
-            surface.blit(lvl_surf, (card_rect.x + 8, card_rect.y + 9))
+            surface.blit(lvl_surf, (card_rect.x + 8, card_rect.y + 7))
 
         footer = self.font_info.render("[UP/DOWN/LEFT/RIGHT] Choose Level   [ENTER] Select   [ESC] Return", True, COLOR_GRAY)
+        surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 14)))
+
+    def draw_settings_screen(self, surface, speed_name, rounds_count, dt):
+        """Settings screen configuring game speed and match rounds."""
+        self.anim_timer += dt
+        surface.fill(COLOR_BLACK)
+
+        title = self.font_title.render("GAME SETTINGS", True, COLOR_GOLD)
+        surface.blit(title, title.get_rect(center=(VIRTUAL_WIDTH // 2, 35)))
+
+        sub = self.font_info.render("Tune game pacing and tournament duration", True, COLOR_CYAN)
+        surface.blit(sub, sub.get_rect(center=(VIRTUAL_WIDTH // 2, 58)))
+
+        options = [
+            ("GAME SPEED", f"< {speed_name} >", "Adjust physics, movement, and projectile pacing"),
+            ("MATCH ROUNDS", f"< {rounds_count} Rounds >", "Total rounds played before calculating final winner"),
+            ("CONFIRM & RETURN", "", "Save settings and return to main menu")
+        ]
+
+        start_y = 90
+        for i, (opt_name, opt_val, opt_desc) in enumerate(options):
+            is_sel = (i == self.selected_idx)
+            col = COLOR_GOLD if is_sel else COLOR_WHITE
+            card_rect = pygame.Rect(40, start_y + i * 50, VIRTUAL_WIDTH - 80, 42)
+
+            bg_col = (50, 50, 90) if is_sel else (25, 28, 45)
+            pygame.draw.rect(surface, bg_col, card_rect, border_radius=4)
+            pygame.draw.rect(surface, col, card_rect, 2 if is_sel else 1, border_radius=4)
+
+            # Option Name & Value
+            if opt_val:
+                label_str = f"{i+1}. {opt_name}:  {opt_val}"
+            else:
+                label_str = f"{i+1}. {opt_name}"
+            lbl_surf = self.font_menu.render(label_str, True, col)
+            surface.blit(lbl_surf, (card_rect.x + 14, card_rect.y + 7))
+
+            desc_surf = self.font_info.render(opt_desc, True, COLOR_YELLOW if is_sel else COLOR_GRAY)
+            surface.blit(desc_surf, (card_rect.x + 14, card_rect.y + 24))
+
+        footer = self.font_info.render("[UP/DOWN] Select   [LEFT/RIGHT] Change Value   [ENTER/ESC] Return", True, COLOR_GRAY)
         surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 16)))
 
     def draw_controls(self, surface):
@@ -423,9 +470,8 @@ class MenuSystem:
         surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 12)))
 
     def draw_victory_screen(self, surface, winner_info, players, mode_name, dt):
-        """End-of-match celebration and scoreboard."""
+        """End-of-match celebration and scoreboard with perfectly justified columns."""
         self.anim_timer += dt
-        # Darkened overlay
         overlay = pygame.Surface((VIRTUAL_WIDTH, VIRTUAL_HEIGHT))
         overlay.fill((10, 10, 20))
         surface.blit(overlay, (0, 0))
@@ -433,30 +479,111 @@ class MenuSystem:
         # Animated celebration banner
         bob = int(math.sin(self.anim_timer * 4.0) * 3)
         vic_title = self.font_title.render("MATCH FINISHED!", True, COLOR_GOLD)
-        surface.blit(vic_title, vic_title.get_rect(center=(VIRTUAL_WIDTH // 2, 35 + bob)))
+        surface.blit(vic_title, vic_title.get_rect(center=(VIRTUAL_WIDTH // 2, 32 + bob)))
 
-        # Winner text
         win_str = winner_info.get("text", "GAME OVER") if winner_info else "MATCH COMPLETED"
         win_surf = self.font_menu.render(win_str, True, COLOR_GREEN)
-        surface.blit(win_surf, win_surf.get_rect(center=(VIRTUAL_WIDTH // 2, 65)))
+        surface.blit(win_surf, win_surf.get_rect(center=(VIRTUAL_WIDTH // 2, 60)))
 
-        # Scoreboard Table
-        table_rect = pygame.Rect(40, 90, VIRTUAL_WIDTH - 80, 150)
+        # Scoreboard Table Card
+        table_rect = pygame.Rect(35, 82, VIRTUAL_WIDTH - 70, 155)
         pygame.draw.rect(surface, (20, 24, 40), table_rect, border_radius=4)
         pygame.draw.rect(surface, COLOR_GOLD, table_rect, 1, border_radius=4)
 
-        header_str = "PLAYER         SCORE     KILLS    DEATHS   RESCUES"
-        head_surf = self.font_info.render(header_str, True, COLOR_CYAN)
-        surface.blit(head_surf, (55, 100))
-        pygame.draw.line(surface, COLOR_CYAN, (55, 115), (VIRTUAL_WIDTH - 55, 115), 1)
+        # Fixed Column Anchors
+        col_player_x = 48
+        col_score_x = 215
+        col_kills_x = 280
+        col_deaths_x = 345
+        col_rescues_x = 410
 
+        # Header Row
+        head_y = 92
+        h_player = self.font_info.render("PLAYER", True, COLOR_CYAN)
+        h_score = self.font_info.render("SCORE", True, COLOR_CYAN)
+        h_kills = self.font_info.render("KILLS", True, COLOR_CYAN)
+        h_deaths = self.font_info.render("DEATHS", True, COLOR_CYAN)
+        h_rescues = self.font_info.render("RESCUES", True, COLOR_CYAN)
+
+        surface.blit(h_player, (col_player_x, head_y))
+        surface.blit(h_score, h_score.get_rect(center=(col_score_x, head_y + 5)))
+        surface.blit(h_kills, h_kills.get_rect(center=(col_kills_x, head_y + 5)))
+        surface.blit(h_deaths, h_deaths.get_rect(center=(col_deaths_x, head_y + 5)))
+        surface.blit(h_rescues, h_rescues.get_rect(center=(col_rescues_x, head_y + 5)))
+
+        pygame.draw.line(surface, COLOR_CYAN, (45, 108), (VIRTUAL_WIDTH - 45, 108), 1)
+
+        # Data Rows
         sorted_players = sorted(players, key=lambda p: p.score, reverse=True)
         for idx, p in enumerate(sorted_players):
-            row_y = 125 + idx * 24
+            row_y = 118 + idx * 26
             col = COLOR_GOLD if idx == 0 else COLOR_WHITE
-            p_line = f"{p.name:<14} {p.score:>7d}   {p.kills:>5d}    {p.deaths:>6d}   {p.rescues:>7d}"
-            r_surf = self.font_info.render(p_line, True, col)
-            surface.blit(r_surf, (55, row_y))
+
+            # Player name truncated if long to preserve table boundaries
+            name_surf = self.font_info.render(p.name[:18], True, col)
+            surface.blit(name_surf, (col_player_x, row_y))
+
+            # Numerical metrics centered on their respective column axes
+            score_surf = self.font_info.render(f"{p.score}", True, col)
+            surface.blit(score_surf, score_surf.get_rect(center=(col_score_x, row_y + 5)))
+
+            kills_surf = self.font_info.render(f"{p.kills}", True, col)
+            surface.blit(kills_surf, kills_surf.get_rect(center=(col_kills_x, row_y + 5)))
+
+            deaths_surf = self.font_info.render(f"{p.deaths}", True, col)
+            surface.blit(deaths_surf, deaths_surf.get_rect(center=(col_deaths_x, row_y + 5)))
+
+            rescues_surf = self.font_info.render(f"{p.rescues}", True, col)
+            surface.blit(rescues_surf, rescues_surf.get_rect(center=(col_rescues_x, row_y + 5)))
 
         footer = self.font_menu.render("Press [ENTER] for Rematch / [ESC] for Main Menu", True, COLOR_YELLOW)
-        surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 35)))
+        surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 32)))
+
+    def draw_settings_screen(self, surface, speed_label, rounds_count, dt):
+        """Renders the Game Settings configuration screen (Speed and Match Rounds)."""
+        self.anim_timer += dt
+        surface.fill(COLOR_BLACK)
+
+        # Title Banner
+        title_surf = self.font_title.render("GAME SETTINGS", True, COLOR_GOLD)
+        surface.blit(title_surf, title_surf.get_rect(center=(VIRTUAL_WIDTH // 2, 45)))
+        sub_surf = self.font_info.render("CONFIGURE MATCH SPEED & ROUNDS DURATION", True, COLOR_CYAN)
+        surface.blit(sub_surf, sub_surf.get_rect(center=(VIRTUAL_WIDTH // 2, 70)))
+
+        # Card container
+        card_rect = pygame.Rect(40, 95, VIRTUAL_WIDTH - 80, 160)
+        pygame.draw.rect(surface, (20, 24, 40), card_rect, border_radius=6)
+        pygame.draw.rect(surface, COLOR_GOLD, card_rect, 1, border_radius=6)
+
+        # Settings items
+        items = [
+            ("GAME SPEED", f"<  {speed_label}  >"),
+            ("MATCH ROUNDS", f"<  {rounds_count} Rounds  >"),
+            ("BACK TO MAIN MENU", "")
+        ]
+
+        for i, (label, val) in enumerate(items):
+            item_y = 125 + i * 42
+            is_selected = (self.selected_idx == i)
+
+            # Highlight row box if selected
+            if is_selected:
+                pulse = int(math.sin(self.anim_timer * 6.0) * 20 + 230)
+                row_rect = pygame.Rect(55, item_y - 8, VIRTUAL_WIDTH - 110, 32)
+                pygame.draw.rect(surface, (30, 42, 70), row_rect, border_radius=4)
+                pygame.draw.rect(surface, (pulse, pulse, 50), row_rect, 1, border_radius=4)
+
+            col_label = COLOR_YELLOW if is_selected else COLOR_WHITE
+            lbl_surf = self.font_menu.render(label, True, col_label)
+            surface.blit(lbl_surf, (75, item_y))
+
+            if val:
+                col_val = COLOR_GOLD if is_selected else COLOR_CYAN
+                val_surf = self.font_menu.render(val, True, col_val)
+                surface.blit(val_surf, val_surf.get_rect(right=VIRTUAL_WIDTH - 75, centery=lbl_surf.get_rect(topleft=(75, item_y)).centery))
+
+        # Bottom Instructions Footer
+        hint_str = "[UP/DOWN] Select Option   [LEFT/RIGHT] Change Value   [ENTER/ESC] Return"
+        hint_surf = self.font_info.render(hint_str, True, COLOR_GRAY)
+        surface.blit(hint_surf, hint_surf.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 35)))
+

@@ -21,7 +21,7 @@ class HUD:
             self.font_timer = pygame.font.Font(None, 16)
             self.font_banner = pygame.font.Font(None, 20)
 
-    def draw(self, surface, players, time_remaining, mode_name, level_name, flag=None):
+    def draw(self, surface, players, time_remaining, mode_name, level_name, flag=None, current_round=1, total_rounds=4):
         # 1. Top HUD Background Bar
         hud_bar = pygame.Surface((VIRTUAL_WIDTH, 18))
         hud_bar.fill(COLOR_BLACK)
@@ -55,16 +55,19 @@ class HUD:
                 flag_lbl = self.font_main.render("FLAG!", True, COLOR_GOLD)
                 surface.blit(flag_lbl, (x_pos, 10))
 
-        # 3. Global 3-Minute Countdown Timer (Center of HUD)
+        # 3. Global Countdown Timer & Round Info (Center of HUD)
         minutes = int(max(0, time_remaining)) // 60
         seconds = int(max(0, time_remaining)) % 60
         timer_str = f"TIME {minutes}:{seconds:02d}"
+        rnd_str = f"RND {current_round}/{total_rounds}"
 
         # Color timer red/gold when under 30s
         timer_color = COLOR_RED if time_remaining <= HURRY_UP_TIME and (int(time_remaining * 4) % 2 == 0) else COLOR_GOLD
         timer_surf = self.font_timer.render(timer_str, True, timer_color)
-        t_rect = timer_surf.get_rect(center=(VIRTUAL_WIDTH // 2, 9))
-        surface.blit(timer_surf, t_rect)
+        rnd_surf = self.font_main.render(rnd_str, True, COLOR_CYAN)
+
+        surface.blit(timer_surf, timer_surf.get_rect(center=(VIRTUAL_WIDTH // 2, 5)))
+        surface.blit(rnd_surf, rnd_surf.get_rect(center=(VIRTUAL_WIDTH // 2, 13)))
 
         # 4. "HURRY UP!" Center Alert Banner
         if time_remaining <= HURRY_UP_TIME and time_remaining > (HURRY_UP_TIME - 3.5):

@@ -143,6 +143,18 @@ STATE_VICTORY = 7
 STATE_CONTROLS = 8
 STATE_LAN_ROOM = 9
 STATE_PLAYER_COUNT = 10
+STATE_SETTINGS = 11
+
+# --- Speed & Match Settings ---
+SPEED_SLOWER = 0.8
+SPEED_NORMAL = 1.0
+SPEED_FASTER = 1.25
+SPEED_OPTIONS = [
+    ("Slower (0.8x)", SPEED_SLOWER),
+    ("Normal (1.0x)", SPEED_NORMAL),
+    ("Faster (1.25x)", SPEED_FASTER)
+]
+DEFAULT_ROUNDS = 4
 
 # --- CPU Bot Personalities ---
 BOT_PERSONALITY_AGGRESSIVE = "Aggressive"

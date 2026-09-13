@@ -8,13 +8,15 @@
 1. [Game Overview](#-game-overview)
 2. [Core Game Design & Pillars](#-core-game-design--pillars)
 3. [Gameplay Mechanics & Controls](#-gameplay-mechanics--controls)
-4. [Game Modes](#-game-modes)
-5. [Arenas & Stage Themes](#-arenas--stage-themes)
-6. [Items, Power-Ups & Collectibles](#-items-power-ups--collectibles)
-7. [LAN Multiplayer & Networking Architecture](#-lan-multiplayer--networking-architecture)
-8. [Codebase Architecture & Class Hierarchy](#-codebase-architecture--class-hierarchy)
-9. [Installation, Running & Building](#-installation-running--building)
-10. [Automated Test Suite](#-automated-test-suite)
+4. [Game Settings & Match Customization](#-game-settings--match-customization)
+5. [Game Modes](#-game-modes)
+6. [Arenas & Stage Themes](#-arenas--stage-themes)
+7. [Items, Power-Ups & Collectibles](#-items-power-ups--collectibles)
+8. [LAN Multiplayer & Networking Architecture](#-lan-multiplayer--networking-architecture)
+9. [Headless Dedicated Console Server](#-headless-dedicated-console-server-linux-freebsd--windows)
+10. [Codebase Architecture & Class Hierarchy](#-codebase-architecture--class-hierarchy)
+11. [Installation, Running & Building](#-installation-running--building)
+12. [Automated Test Suite](#-automated-test-suite)
 
 ---
 
@@ -80,6 +82,32 @@
 
 ---
 
+## ⚙️ Game Settings & Match Customization
+
+Configurable directly from the title screen under **GAME SETTINGS**:
+
+### 1. Game Speed Multiplier
+- **`Slower (0.8x)`**: Relaxed pacing, suited for tactical positioning and beginner practice.
+- **`Normal (1.0x)`**: Default authentic arcade brawler speed (standard 60 FPS physics).
+- **`Faster (1.25x)`**: Fast-paced turbo speed for experienced brawlers and rapid reflexes.
+*Note: Scales game physics, timers, cooldowns, and bubble velocities proportionally while preserving smooth 60 FPS animation rendering.*
+
+### 2. Configurable Match Rounds
+- Adjust match duration from **1 to 10 rounds** (default: **4 rounds**).
+- Cumulative statistics (Score, Kills, Deaths, and Rescues) are preserved across rounds.
+- Top HUD displays live round progress: `RND X/Y`.
+- Mid-match round transitions display a stylish arcade celebration banner announcing the upcoming round.
+
+### 3. Justified Match Results Scoreboard
+- At the conclusion of the final round, the **MATCH FINISHED!** celebration renders a table with strictly justified columns:
+  - `PLAYER`: Player identity and nickname
+  - `SCORE`: Cumulative score points
+  - `KILLS`: Trapped bubble eliminations
+  - `DEATHS`: Times eliminated
+  - `RESCUES`: Friendly bubble pops (2v2 Team Brawler)
+
+---
+
 ## 🏆 Game Modes
 
 1. **Free-For-All (FFA):**
@@ -95,7 +123,7 @@
 
 ## 🗺️ Arenas & Stage Themes
 
-Bubble Arena features **14 handcrafted single-screen maps**, each featuring distinct platform configurations and visual themes:
+Bubble Arena features **14 handcrafted single-screen maps**, each featuring distinct platform configurations and visual themes. In the **SELECT LEVEL** menu, all 14 stages are displayed in an interactive 2-column $\times$ 7-row grid with clean arrow-key navigation (Left/Right jumps between columns, Up/Down steps through stages):
 
 1. **Emerald Meadow:** Classic multi-tiered grassland with central climbing gaps.
 2. **Azure Castle:** Fortified stone battlements with tall side watchtowers.
@@ -184,6 +212,45 @@ Bubble Arena includes a standalone, 100% headless dedicated server (`bubblearena
 - **Live Ping & Latency Monitoring**: Automatically calculates round-trip latency in milliseconds ($RTT$) for each connected client and displays live metrics in the console.
 - **Interactive Managerial Console Shell**: Real-time CLI administrative controls (`status`, `kick`, `ban`, `mode`, `level`, `bot`, `say`, etc.).
 - **IP Blacklist / Ban System**: Automatically refuses connections from banned IPs and disconnects active clients instantly.
+
+---
+
+### 📦 Minimal Dedicated Server Deployment (Headless VPS / Linux / FreeBSD)
+
+To run a dedicated server on a remote Linux VPS or FreeBSD machine, **you do NOT need to transfer graphics, audio, or game client files**. The dedicated server runs 100% headless using only the Python standard library, requiring only **4 files** with a total footprint under **50 KB**:
+
+#### Required Directory & File Structure:
+```
+bubblearena_server/
+├── bubblearena_server.py      # Server entry point & interactive admin shell
+├── constants.py               # Network ports, game modes, and bot personalities
+└── network/
+    ├── __init__.py            # Standard Python package marker (empty file)
+    ├── protocol.py            # JSON newline-delimited network protocol
+    └── server_core.py         # Unified BaseBubbleServer engine & client socket manager
+```
+
+#### Quick Deployment Script:
+To prepare and package only the minimal dedicated server files from the repository:
+```bash
+# Create minimal deployment bundle
+mkdir -p bubblearena_server/network
+cp bubblearena_server.py bubblearena_server/
+cp constants.py bubblearena_server/
+touch bubblearena_server/network/__init__.py
+cp network/protocol.py bubblearena_server/network/
+cp network/server_core.py bubblearena_server/network/
+
+# Transfer to remote machine (example via rsync / scp)
+rsync -avz bubblearena_server/ user@your-remote-server:/opt/bubblearena_server/
+```
+
+On the remote machine, simply execute:
+```bash
+cd /opt/bubblearena_server
+python3 bubblearena_server.py -i 0.0.0.0 -p 28888 --no-beacon
+```
+*No Pygame, SDL, X11, Wayland, audio drivers, or graphic assets required!*
 
 ---
 
