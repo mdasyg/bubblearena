@@ -269,46 +269,107 @@ Bubble Arena features a dedicated decision engine ([`engine/bot_ai.py`](file:///
 
 ---
 
-## 🌐 Pushing to a Brand New Remote GitHub Repository
+---
 
-To share this codebase with other agents and developers via a new GitHub repository:
+## 🌐 Remote GitHub Repository & Custom Token Configuration
 
-### Step 1: Create an Empty GitHub Repository
-1. Log in to [GitHub](https://github.com) and click **New Repository** (or run `gh repo create BubbleArena --public`).
-2. **Do NOT initialize** with a README, .gitignore, or license (the local repo already contains these).
-3. Copy your repository's remote URL:
-   - HTTPS: `https://github.com/<YOUR-USERNAME>/BubbleArena.git`
-   - Or SSH: `git@github.com:<YOUR-USERNAME>/BubbleArena.git`
+The local repository is connected to the remote GitHub repository at:
+**`https://github.com/mdasyg/bubblearena.git`**
 
-### Step 2: Ensure Git CLI is Installed on Your System
-If `git` command is not recognized in your terminal, install Git for Windows:
+### 🔑 Custom Token Authentication & Required Security Scopes
+
+When connecting local repositories or automated AI agents to GitHub using a custom Personal Access Token (PAT), specific security permissions must be granted to enable **Pull**, **Commit**, **Push**, and **Merge** operations while preserving the principle of least privilege.
+
+#### 1. Fine-Grained Personal Access Token (Recommended)
+Navigate to **GitHub $\rightarrow$ Settings $\rightarrow$ Developer Settings $\rightarrow$ Personal Access Tokens $\rightarrow$ Fine-grained tokens**:
+
+- **Token Name**: e.g., `BubbleArena-Agent-Token`
+- **Expiration**: As required (e.g., 90 days or custom)
+- **Repository Access**: **Only select repositories** $\rightarrow$ select **`bubblearena`** (restricts token blast radius).
+- **Required Repository Permissions**:
+
+| Security Permission | Access Level | Operations Allowed | Purpose & Rationale |
+| :--- | :--- | :--- | :--- |
+| **`Contents`** | **Read and write** | `git pull`, `git fetch`, `git push`, `git merge`, commits, branches | **Required**. Allows downloading repository code/objects, creating and pushing local commits, creating branches, fast-forwarding, and merging branches into `main`. |
+| **`Metadata`** | **Read-only** | Repository metadata discovery | **Mandatory default**. Required by GitHub API for any interaction with the repository (commit hashes, ref lookups, default branch). |
+| **`Pull requests`** | **Read and write** | Create, review, update, and merge PRs | **Required for PR workflows**. Allows agents and developers to open pull requests, request reviews, and merge PRs via GitHub CLI (`gh pr create`, `gh pr merge`) or API. |
+| **`Workflows`** | **Read and write** *(Optional)* | Update GitHub Actions workflows | Only required if editing `.github/workflows/*.yml` automation pipelines. |
+
+---
+
+#### 2. Classic Personal Access Token (Legacy Alternative)
+Navigate to **GitHub $\rightarrow$ Settings $\rightarrow$ Developer Settings $\rightarrow$ Personal Access Tokens $\rightarrow$ Tokens (classic)**:
+
+- Select scopes:
+  - **`repo`** (Full control of private repositories):
+    - `repo:status` — Access commit status
+    - `repo_deployment` — Access deployment status
+    - `public_repo` — Access public repositories
+    - `repo:invite` — Access repository invitations
+    - `security_events` — Read/write security events
+  *(Note: If the repository is strictly **public**, checking only **`public_repo`** is sufficient for pulling, pushing, and merging code).*
+
+---
+
+### 🛠️ How Local Repository Was Linked to Remote
+
+#### Step 1: Remote URL Setup with Token
+To link the local repository with the remote and embed credentials securely:
+
 ```powershell
-winget install --id Git.Git -e --source winget
+# Method A: Using Git Credential Manager (Recommended - prevents token exposure in config)
+git remote add origin https://github.com/mdasyg/bubblearena.git
+git config --global credential.helper manager
+# On first push, Git Credential Manager securely prompts for username and PAT
+
+# Method B: Direct URL Authentication
+git remote set-url origin https://<YOUR_GITHUB_TOKEN>@github.com/mdasyg/bubblearena.git
 ```
-*(After installing, open a new terminal window to refresh PATH)*.
 
-### Step 3: Configure Remote Origin and Push
-In your `c:\Temp\BubbleArena` directory, run:
+#### Step 2: Establish Default Branch and Upstream
 ```powershell
-# 1. Ensure the default branch is named 'main'
 git branch -M main
-
-# 2. Add your remote repository origin
-git remote add origin https://github.com/<YOUR-USERNAME>/BubbleArena.git
-
-# 3. Push all commits and set upstream tracking
 git push -u origin main
 ```
 
-> [!TIP]
-> If your local Git repository was managed using the bundled pure-Python Dulwich manager (`python git_tool.py`), running the standard `git` commands above will seamlessly read all existing commits and history.
+---
 
-### Step 4: Instructions for Cooperating Agents
-Other agents or developers can immediately clone and run the project:
-```bash
-git clone https://github.com/<YOUR-USERNAME>/BubbleArena.git
-cd BubbleArena
-pip install pygame
-python -m unittest discover tests
-python main.py
+### 🔄 Multi-Agent & Developer Collaboration Workflow
+
+To prevent merge conflicts and ensure clean synchronization across multiple developers and AI agents, follow this required cycle:
+
+```text
+[ START TASK ] ────> 1. git pull (fetch latest remote state)
+                           │
+                           ▼
+                      2. Make code edits & verify tests
+                           │
+                           ▼
+                      3. git commit (local version control)
+                           │
+                           ▼
+[ FINISH TASK ] ───> 4. git push (sync commits to remote origin)
 ```
+
+#### Convenient CLI Commands:
+- **Pull latest changes (Run FIRST before starting work)**:
+  ```powershell
+  python git_tool.py pull
+  # or: git pull origin main
+  ```
+
+- **Run test verification**:
+  ```powershell
+  python -m unittest discover tests
+  ```
+
+- **Commit local changes**:
+  ```powershell
+  python git_tool.py commit "Description of features or bugfixes"
+  ```
+
+- **Push changes to remote (Run AFTER finishing work)**:
+  ```powershell
+  python git_tool.py push
+  # or: git push origin main
+  ```

@@ -4,8 +4,47 @@ Provides standard git init, add, commit, status, and log operations.
 """
 import sys
 import os
+import subprocess
+import shutil
 import dulwich.porcelain as git
 from dulwich.repo import Repo
+
+def find_git_exe():
+    """Locates system Git binary."""
+    candidates = [
+        r"C:\Program Files\Git\cmd\git.exe",
+        r"C:\Program Files\Git\bin\git.exe",
+        r"C:\Users\root\AppData\Local\Programs\Git\cmd\git.exe",
+        "git"
+    ]
+    for c in candidates:
+        if os.path.exists(c) or shutil.which(c):
+            return c
+    return "git"
+
+def pull():
+    """Pulls latest remote commits from origin."""
+    git_bin = find_git_exe()
+    try:
+        res = subprocess.run([git_bin, "pull"], capture_output=True, text=True)
+        out = res.stdout.strip() or res.stderr.strip()
+        print(f"[Git Pull] {out}")
+        return res.returncode == 0
+    except Exception as e:
+        print(f"[Git Pull] Error: {e}")
+        return False
+
+def push():
+    """Pushes local commits to origin."""
+    git_bin = find_git_exe()
+    try:
+        res = subprocess.run([git_bin, "push"], capture_output=True, text=True)
+        out = res.stdout.strip() or res.stderr.strip()
+        print(f"[Git Push] {out}")
+        return res.returncode == 0
+    except Exception as e:
+        print(f"[Git Push] Error: {e}")
+        return False
 
 def init_repo():
     """Initializes a local git repository if not already initialized."""
@@ -78,6 +117,10 @@ if __name__ == "__main__":
             log()
         elif cmd == "status":
             status()
+        elif cmd == "pull":
+            pull()
+        elif cmd == "push":
+            push()
         else:
             print(f"Unknown command: {cmd}")
     else:
