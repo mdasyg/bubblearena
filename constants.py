@@ -1,7 +1,15 @@
 """
 constants.py - Global constants, physics settings, colors, and key mappings for Bubble Arena.
 """
-import pygame
+import os
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+try:
+    import pygame
+except ImportError:
+    class _DummyPygameKey:
+        def __getattr__(self, name):
+            return 0
+    pygame = _DummyPygameKey()
 
 # --- Screen & Display ---
 SCREEN_WIDTH = 960

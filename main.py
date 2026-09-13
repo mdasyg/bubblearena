@@ -33,17 +33,19 @@ def main():
 
     if args.host:
         from network.lan_server import LANServer
+        from constants import STATE_LAN_ROOM
         engine.lan_server = LANServer()
         engine.lan_server.start()
         engine.is_lan_host = True
-        engine.start_match()
+        engine.state = STATE_LAN_ROOM
 
     if args.join:
         from network.lan_client import LANClient
+        from constants import STATE_LAN_ROOM
         engine.lan_client = LANClient()
         if engine.lan_client.connect(args.join):
             engine.is_lan_client = True
-            engine.start_match()
+            engine.state = STATE_LAN_ROOM
 
     engine.run()
 

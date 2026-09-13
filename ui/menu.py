@@ -200,10 +200,10 @@ class MenuSystem:
         footer = self.font_info.render("Press [ENTER] or [ESC] to Return to Menu", True, COLOR_CYAN)
         surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 16)))
 
-    def draw_lan_lobby(self, surface, host_ip, interfaces, iface_idx, found_hosts, is_hosting, is_connected, status_msg=""):
+    def draw_lan_lobby(self, surface, host_ip, interfaces, iface_idx, found_hosts, is_hosting, is_connected, status_msg="", target_remote_ip="127.0.0.1"):
         """LAN Multiplayer room setup & interface selection screen."""
         surface.fill(COLOR_BLACK)
-        title = self.font_title.render("LAN MULTIPLAYER", True, COLOR_GOLD)
+        title = self.font_title.render("LAN & INTERNET MULTIPLAYER", True, COLOR_GOLD)
         surface.blit(title, title.get_rect(center=(VIRTUAL_WIDTH // 2, 25)))
 
         current_iface = interfaces[iface_idx] if interfaces and iface_idx < len(interfaces) else host_ip
@@ -212,7 +212,7 @@ class MenuSystem:
             f"1. NETWORK INTERFACE: < {current_iface} >",
             f"2. HOST LAN MATCH (Creates 4-Player Lobby)",
             "3. AUTO-DISCOVER & JOIN LOCAL HOST",
-            "4. DIRECT CONNECT TO LOCALHOST (127.0.0.1)",
+            f"4. DIRECT CONNECT TO IP/HOST: < {target_remote_ip} >",
             "5. RETURN TO MAIN MENU"
         ]
 
@@ -221,7 +221,7 @@ class MenuSystem:
             is_sel = (i == self.selected_idx)
             col = COLOR_GOLD if is_sel else COLOR_WHITE
             prefix = ">> " if is_sel else "   "
-            if i == 0 and is_sel:
+            if (i == 0 or i == 3) and is_sel:
                 opt_str = f"{prefix}{opt} [<- / ->]"
             else:
                 opt_str = f"{prefix}{opt}"

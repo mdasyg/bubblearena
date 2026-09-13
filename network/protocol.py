@@ -13,6 +13,8 @@ MSG_READY_TOGGLE = "READY_TOGGLE"
 MSG_LOBBY_STATE = "LOBBY_STATE"
 MSG_CHAT = "CHAT"
 MSG_MATCH_START = "MATCH_START"
+MSG_KICK = "KICK"
+MSG_SERVER_ANNOUNCE = "SERVER_ANNOUNCE"
 
 def encode_packet(msg_type, payload):
     """Encodes message type and payload to utf-8 JSON bytes with newline delimiter."""
