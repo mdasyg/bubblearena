@@ -12,18 +12,19 @@ class BaseGameMode:
         self.is_match_over = False
         self.winner_info = None
 
-    def start_round(self, players):
-        """Initializes match state for all players."""
+    def start_round(self, players, reset_scores=True):
+        """Initializes match/round state for all players."""
         self.match_time_remaining = GLOBAL_MATCH_TIME
         self.is_hurry_up = False
         self.is_match_over = False
         self.winner_info = None
-        for p in players:
-            p.score = 0
-            p.kills = 0
-            p.deaths = 0
-            p.rescues = 0
-            p.flag_captures = 0
+        if reset_scores:
+            for p in players:
+                p.score = 0
+                p.kills = 0
+                p.deaths = 0
+                p.rescues = 0
+                p.flag_captures = 0
 
     def update(self, dt, players, flag=None, sound_mgr=None):
         """Updates match countdown timer and triggers Hurry Up alert."""

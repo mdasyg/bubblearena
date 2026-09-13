@@ -345,5 +345,98 @@ class TestBubbleArena(unittest.TestCase):
         with self.assertRaises(SystemExit):
             engine.run()
 
+    def test_level_select_14_levels_grid_navigation(self):
+        """Verify 2-column x 7-row navigation between all 14 arena levels."""
+        from engine.game import GameEngine
+        engine = GameEngine(is_bot_match=False)
+        self.assertEqual(engine.level_mgr.get_level_count(), 14)
+        rows_per_col = (engine.level_mgr.get_level_count() + 1) // 2
+        self.assertEqual(rows_per_col, 7)
+
+        # Start at index 0 (Col 0, Row 0) -> Move Right jumps by 7 to index 7 (Col 1, Row 0)
+        idx = 0
+        idx_right = min(engine.level_mgr.get_level_count() - 1, idx + rows_per_col)
+        self.assertEqual(idx_right, 7)
+
+        # From index 7 (Col 1, Row 0) -> Move Left jumps by -7 to index 0 (Col 0, Row 0)
+        idx_left = max(0, idx_right - rows_per_col)
+        self.assertEqual(idx_left, 0)
+
+        # From index 13 (Col 1, Row 6) -> Move Left jumps to index 6 (Col 0, Row 6)
+        idx_last = 13
+        self.assertEqual(max(0, idx_last - rows_per_col), 6)
+
+    def test_game_settings_speed_and_rounds_defaults(self):
+        """Verify default speed (1.0x Normal) and default rounds (4) in GameEngine."""
+        from engine.game import GameEngine
+        from constants import SPEED_OPTIONS, DEFAULT_ROUNDS, SPEED_SLOWER, SPEED_NORMAL, SPEED_FASTER
+        engine = GameEngine(is_bot_match=False)
+        self.assertEqual(engine.total_rounds, 4)
+        self.assertEqual(engine.total_rounds, DEFAULT_ROUNDS)
+        self.assertEqual(engine.speed_idx, 1)
+        self.assertEqual(engine.game_speed_mult, 1.0)
+        self.assertEqual(SPEED_OPTIONS[0][1], SPEED_SLOWER)
+        self.assertEqual(SPEED_OPTIONS[1][1], SPEED_NORMAL)
+        self.assertEqual(SPEED_OPTIONS[2][1], SPEED_FASTER)
+
+    def test_multi_round_progression_and_score_retention(self):
+        """Verify multi-round match keeps scores across rounds and transitions to victory on final round."""
+        from engine.game import GameEngine
+        from constants import STATE_PLAYING, STATE_VICTORY
+        engine = GameEngine(is_bot_match=False)
+        engine.total_rounds = 3
+        engine.start_match(use_random_map=False, is_new_match=True)
+
+        self.assertEqual(engine.current_round, 1)
+        self.assertEqual(engine.state, STATE_PLAYING)
+
+        # Player 0 scores 1500 points in round 1
+        engine.players[0].score = 1500
+        engine.players[0].kills = 2
+
+        # Round 1 completes -> advance to round 2
+        engine.current_round += 1
+        engine.start_next_round()
+
+        self.assertEqual(engine.current_round, 2)
+        self.assertEqual(engine.players[0].score, 1500)
+        self.assertEqual(engine.players[0].kills, 2)
+        self.assertEqual(engine.state, STATE_PLAYING)
+
+        # Round 2 completes -> advance to round 3 (final)
+        engine.players[0].score += 800
+        engine.current_round += 1
+        engine.start_next_round()
+
+        self.assertEqual(engine.current_round, 3)
+        self.assertEqual(engine.players[0].score, 2300)
+
+        # Round 3 ends -> match is over -> transition to victory
+        engine.game_mode.is_match_over = True
+        engine.update(0.016)
+        self.assertEqual(engine.state, STATE_VICTORY)
+
+    def test_bubble_shoot_facing_orientation_not_inverted(self):
+        """Verify player shooting left maintains facing == -1, shooting right maintains facing == 1."""
+        from entities.player import Player
+        from entities.bubble import Bubble
+        player = Player(player_id=0, spawn_x=150, spawn_y=150, team=0)
+        bubbles = []
+
+        # Face Left and shoot
+        player.facing = -1
+        player.handle_input({"shoot": True}, 0.016, bubbles)
+        self.assertEqual(player.facing, -1)
+        self.assertGreater(len(bubbles), 0)
+        self.assertEqual(bubbles[-1].direction, -1)
+
+        # Face Right and shoot
+        player.shoot_cooldown = 0.0
+        player.facing = 1
+        player.handle_input({"shoot": True}, 0.016, bubbles)
+        self.assertEqual(player.facing, 1)
+        self.assertEqual(bubbles[-1].direction, 1)
+
 if __name__ == "__main__":
     unittest.main()
+

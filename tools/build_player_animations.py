@@ -150,7 +150,11 @@ def extract_character_poses(p_id, name, is_dark_bg):
             ox = (TARGET_SIZE - nw) // 2
             oy = (TARGET_SIZE - nh)
             canvas.paste(resized, (ox, oy), resized)
-            
+
+            # Normalize facing to RIGHT for shoot frames on Green, Yellow, Red sheets
+            if state_name == "shoot" and p_id in (0, 2, 3):
+                canvas = canvas.transpose(Image.FLIP_LEFT_RIGHT)
+
             file_path = f"{state_dir}/{idx}.png"
             canvas.save(file_path)
             saved_anims[state_name].append(file_path)

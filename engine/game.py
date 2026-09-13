@@ -9,7 +9,7 @@ from constants import (
     SCREEN_WIDTH, SCREEN_HEIGHT, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, FPS, TITLE,
     STATE_MENU, STATE_MODE_SELECT, STATE_LEVEL_SELECT, STATE_LOBBY,
     STATE_PLAYING, STATE_PAUSED, STATE_GAMEOVER, STATE_VICTORY, STATE_CONTROLS, STATE_LAN_ROOM,
-    STATE_PLAYER_COUNT, BOT_PERSONALITIES,
+    STATE_PLAYER_COUNT, STATE_SETTINGS, SPEED_OPTIONS, DEFAULT_ROUNDS, BOT_PERSONALITIES,
     MODE_FFA, MODE_TEAM, MODE_CTF, GAME_MODES, PLAYER_COLORS,
     COLOR_GOLD, COLOR_RED, COLOR_GREEN, DEFAULT_PORT
 )
@@ -78,6 +78,14 @@ class GameEngine:
         self.game_mode = FFAMode()
         self.is_bot_match = is_bot_match
 
+        # Speed & Multi-Round Match Settings
+        self.speed_idx = 1  # Default Normal (1.0x)
+        self.game_speed_mult = 1.0
+        self.total_rounds = DEFAULT_ROUNDS  # Default 4 rounds
+        self.current_round = 1
+        self.round_transition_timer = 0.0
+        self.round_transition_text = ""
+
         # Entities
         self.players = []
         self.bubbles = []
@@ -105,7 +113,7 @@ class GameEngine:
         if self.is_bot_match:
             self.setup_players_by_human_count(1)
         else:
-            self.setup_players_by_human_count(1)
+            self.setup_players_by_human_count(4)
 
     def set_game_mode(self, mode_name):
         """Switches the active game mode rules."""
@@ -123,8 +131,16 @@ class GameEngine:
             for p in self.players:
                 p.team = 0 if p.id in (0, 2) else 1
 
-    def start_match(self, use_random_map=True):
+    def start_match(self, use_random_map=True, is_new_match=True):
         """Starts a fresh match on a random or selected level and mode."""
+        if is_new_match:
+            self.current_round = 1
+            for p in self.players:
+                p.score = 0
+                p.kills = 0
+                p.deaths = 0
+                p.rescues = 0
+
         if use_random_map:
             self.level_mgr.load_random_level()
 
@@ -147,6 +163,35 @@ class GameEngine:
 
         self.game_mode.start_round(self.players)
         self.sound_mgr.start_bgm(fast=False)
+        self.round_transition_timer = 2.5
+        self.round_transition_text = f"ROUND {self.current_round} OF {self.total_rounds}"
+        self.state = STATE_PLAYING
+
+    def start_next_round(self):
+        """Advances to next round of the match, preserving cumulative player scores and statistics."""
+        self.level_mgr.load_random_level()
+        self.bubbles.clear()
+        self.trapped_bubbles.clear()
+        self.powerups.clear()
+        self.item_spawn_timer = random.uniform(6.0, 12.0)
+
+        # Reposition players to level spawn points (keeping scores and stats intact)
+        for i, p in enumerate(self.players):
+            sp = self.level_mgr.spawn_points.get(i, (40 + i * 100, 50))
+            p.reset_for_round(sp[0], sp[1])
+
+        # Flag setup for CTF
+        if self.current_mode_name == MODE_CTF:
+            fx, fy = self.level_mgr.flag_spawn
+            self.flag = Flag(fx, fy)
+        else:
+            self.flag = None
+
+        self.game_mode.start_round(self.players, reset_scores=False)
+        self.sound_mgr.start_bgm(fast=False)
+        self.round_transition_timer = 2.5
+        self.round_transition_text = f"ROUND {self.current_round} OF {self.total_rounds}"
+        self.sound_mgr.play_sfx("victory")
         self.state = STATE_PLAYING
 
     def run(self):
@@ -190,13 +235,51 @@ class GameEngine:
                     elif idx == 2:  # Select Level
                         self.menu.selected_idx = self.level_mgr.current_level_idx
                         self.state = STATE_LEVEL_SELECT
-                    elif idx == 3:  # LAN Multiplayer
+                    elif idx == 3:  # Game Settings
+                        self.menu.selected_idx = 0
+                        self.state = STATE_SETTINGS
+                    elif idx == 4:  # LAN Multiplayer
                         self.menu.selected_idx = 0
                         self.state = STATE_LOBBY
-                    elif idx == 4:  # Controls
+                    elif idx == 5:  # Controls
                         self.state = STATE_CONTROLS
-                    elif idx == 5:  # Quit
+                    elif idx == 6:  # Quit
                         self.running = False
+
+            elif self.state == STATE_SETTINGS:
+                if event.type == pygame.KEYDOWN:
+                    if event.key in (pygame.K_UP, pygame.K_w):
+                        self.menu.selected_idx = (self.menu.selected_idx - 1) % 3
+                        self.sound_mgr.play_sfx("select")
+                    elif event.key in (pygame.K_DOWN, pygame.K_s):
+                        self.menu.selected_idx = (self.menu.selected_idx + 1) % 3
+                        self.sound_mgr.play_sfx("select")
+                    elif event.key in (pygame.K_LEFT, pygame.K_a):
+                        if self.menu.selected_idx == 0:  # Game Speed
+                            self.speed_idx = (self.speed_idx - 1) % len(SPEED_OPTIONS)
+                            self.game_speed_mult = SPEED_OPTIONS[self.speed_idx][1]
+                            self.sound_mgr.play_sfx("select")
+                        elif self.menu.selected_idx == 1:  # Rounds count
+                            self.total_rounds = max(1, self.total_rounds - 1)
+                            self.sound_mgr.play_sfx("select")
+                    elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                        if self.menu.selected_idx == 0:  # Game Speed
+                            self.speed_idx = (self.speed_idx + 1) % len(SPEED_OPTIONS)
+                            self.game_speed_mult = SPEED_OPTIONS[self.speed_idx][1]
+                            self.sound_mgr.play_sfx("select")
+                        elif self.menu.selected_idx == 1:  # Rounds count
+                            self.total_rounds = min(10, self.total_rounds + 1)
+                            self.sound_mgr.play_sfx("select")
+                    elif event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_f):
+                        if self.menu.selected_idx == 2:  # Back to Main Menu
+                            self.menu.selected_idx = 0
+                            self.state = STATE_MENU
+                            self.sound_mgr.play_sfx("select")
+                    elif event.key == pygame.K_ESCAPE:
+                        self.menu.selected_idx = 0
+                        self.state = STATE_MENU
+                        self.sound_mgr.play_sfx("select")
+
 
             elif self.state == STATE_PLAYER_COUNT:
                 action = self.menu.handle_navigation(event, 4)
@@ -234,10 +317,12 @@ class GameEngine:
                         self.menu.selected_idx = (self.menu.selected_idx + 1) % self.level_mgr.get_level_count()
                         self.sound_mgr.play_sfx("select")
                     elif event.key in (pygame.K_LEFT, pygame.K_a):
-                        self.menu.selected_idx = max(0, self.menu.selected_idx - 5)
+                        rows_per_col = (self.level_mgr.get_level_count() + 1) // 2
+                        self.menu.selected_idx = max(0, self.menu.selected_idx - rows_per_col)
                         self.sound_mgr.play_sfx("select")
                     elif event.key in (pygame.K_RIGHT, pygame.K_d):
-                        self.menu.selected_idx = min(self.level_mgr.get_level_count() - 1, self.menu.selected_idx + 5)
+                        rows_per_col = (self.level_mgr.get_level_count() + 1) // 2
+                        self.menu.selected_idx = min(self.level_mgr.get_level_count() - 1, self.menu.selected_idx + rows_per_col)
                         self.sound_mgr.play_sfx("select")
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_f):
                         self.level_mgr.load_level(self.menu.selected_idx)
@@ -549,6 +634,11 @@ class GameEngine:
         if self.state != STATE_PLAYING:
             return
 
+        if self.round_transition_timer > 0:
+            self.round_transition_timer = max(0.0, self.round_transition_timer - dt)
+
+        dt = dt * self.game_speed_mult
+
         platforms = self.level_mgr.platforms
 
         # 1. LAN Network Input Synchronization
@@ -710,8 +800,12 @@ class GameEngine:
         # 7. Match Mode Rules & Timer Countdown
         self.game_mode.update(dt, self.players, self.flag, self.sound_mgr)
         if self.game_mode.is_match_over:
-            self.state = STATE_VICTORY
-            self.sound_mgr.stop_bgm()
+            if self.current_round < self.total_rounds:
+                self.current_round += 1
+                self.start_next_round()
+            else:
+                self.state = STATE_VICTORY
+                self.sound_mgr.stop_bgm()
 
         # 8. Particle System
         self.particle_mgr.update(dt)
@@ -731,6 +825,14 @@ class GameEngine:
 
         elif self.state == STATE_LEVEL_SELECT:
             self.menu.draw_level_select(self.virtual_screen, self.level_mgr, dt)
+
+        elif self.state == STATE_SETTINGS:
+            self.menu.draw_settings_screen(
+                self.virtual_screen,
+                SPEED_OPTIONS[self.speed_idx][0],
+                self.total_rounds,
+                dt
+            )
 
         elif self.state == STATE_CONTROLS:
             self.menu.draw_controls(self.virtual_screen)
@@ -793,8 +895,18 @@ class GameEngine:
             # Render Top HUD
             self.hud.draw(
                 self.virtual_screen, self.players, self.game_mode.match_time_remaining,
-                self.current_mode_name, self.level_mgr.level_name, self.flag
+                self.current_mode_name, self.level_mgr.level_name, self.flag,
+                current_round=self.current_round, total_rounds=self.total_rounds
             )
+
+            # Round Transition Banner
+            if self.round_transition_timer > 0:
+                banner_surf = pygame.Surface((240, 32), pygame.SRCALPHA)
+                banner_surf.fill((12, 16, 32, 220))
+                pygame.draw.rect(banner_surf, COLOR_GOLD, (0, 0, 240, 32), 2, border_radius=6)
+                r_txt = self.menu.font_title.render(self.round_transition_text, True, (255, 230, 70))
+                banner_surf.blit(r_txt, r_txt.get_rect(center=(120, 16)))
+                self.virtual_screen.blit(banner_surf, banner_surf.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT // 2 - 25)))
 
             # Pause Overlay
             if self.state == STATE_PAUSED:
