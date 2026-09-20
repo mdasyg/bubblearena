@@ -46,10 +46,16 @@ python bubblearena_server.py -i 0.0.0.0 -p 28888 -m team -l 5 --no-beacon
 python -m unittest discover tests
 ```
 
-### 5. Compiling Standalone Windows Client Binary
+### 5. Compiling & Publishing Releases (GitHub Releases)
 ```powershell
+# 1. Compile Windows client binary
 pyinstaller --noconfirm --clean --onefile --name "BubbleArena" --add-data "assets;assets" --add-data "Animation;Animation" --collect-all pygame main.py
 Copy-Item -Force "dist\BubbleArena.exe" "Releases\BubbleArena.exe"
+
+# 2. Publish to GitHub Releases (Windows PowerShell or Linux bash)
+.\release-push.ps1
+# or on Linux / Git Bash:
+./release-push.sh
 ```
 
 ### 6. Version Control Commands
@@ -113,7 +119,7 @@ python git_tool.py push
 ## Development Rules
 
 - **Git Protocol**: ALWAYS run `python git_tool.py pull` before modifying code, and `python git_tool.py push` after completing work and passing all tests.
-- **Client Executable Distribution**: Every feature or client code modification MUST recompile `dist/BubbleArena.exe` with PyInstaller and copy to `./Releases/BubbleArena.exe`, then commit and push it.
+- **Client Executable Distribution**: Binaries (`Releases/`, `dist/`, `*.exe`) MUST NEVER be committed to Git. The `Releases/` folder is gitignored. Standalone binaries are published exclusively via GitHub Releases using `release-push.sh` or `release-push.ps1`.
 - **Minimal Dedicated Server Footprint**: The dedicated server (`bubblearena_server.py`) MUST remain 100% headless with zero dependencies on Pygame, SDL, or graphic assets. Only 4 files required: `bubblearena_server.py`, `constants.py`, `network/protocol.py`, `network/server_core.py` (and an empty `network/__init__.py`). Total footprint must remain under 50 KB.
 - **Resolution & Scaling**: Virtual canvas is fixed at `480 x 320`. Never change native physics coordinates or draw directly in window coordinates.
 - **Testing Integrity**: Every new feature or bugfix MUST include unit tests in `tests/`. All 64 existing tests must remain passing. Run `python -m unittest discover tests`.
@@ -168,7 +174,7 @@ python git_tool.py push
 
 - **Pygame Window Scaling on HiDPI Displays**: Integer 2x scaling (`480 x 320` to `960 x 640`) must maintain nearest-neighbor interpolation to prevent blur on fractional Windows scaling.
 - **WAN Socket Packet Timing**: Non-blocking TCP sockets handle bursts cleanly on LAN; high-latency WAN connections should be tested with simulated packet jitter.
-- **Large Release Binary in Git**: `Releases/BubbleArena.exe` is ~86 MB. GitHub warns on files >50 MB (hard limit 100 MB). Git LFS should be considered if binary size exceeds 95 MB.
+- **Release Binary Hosting**: Executable binaries are gitignored and published to GitHub Releases via `release-push.sh` / `release-push.ps1`, preserving a lightweight (~7 MB) repository footprint.
 
 ## Next Session Handoff
 

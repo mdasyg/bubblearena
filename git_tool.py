@@ -70,7 +70,13 @@ def add_all():
             dirs.remove("build")
         if "dist" in dirs:
             dirs.remove("dist")
+        if "Releases" in dirs:
+            dirs.remove("Releases")
+        if "releases" in dirs:
+            dirs.remove("releases")
         for f in files:
+            if f.lower().endswith(".exe"):
+                continue
             rel_path = os.path.relpath(os.path.join(root, f), ".").replace("\\", "/")
             all_files.append(rel_path)
 

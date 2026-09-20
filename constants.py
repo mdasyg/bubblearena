@@ -18,6 +18,7 @@ VIRTUAL_WIDTH = 480
 VIRTUAL_HEIGHT = 320
 FPS = 60
 TITLE = "BUBBLE ARENA - 4P Retro Arcade Brawler"
+VERSION = "1.0.0"
 
 # --- Physics Constants ---
 GRAVITY = 640.0             # pixels/sec^2

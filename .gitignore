@@ -6,3 +6,6 @@ __pycache__/
 *.log
 build/
 dist/
+Releases/
+releases/
+*.exe
