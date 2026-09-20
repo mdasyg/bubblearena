@@ -64,6 +64,11 @@ if ! command -v gh >/dev/null 2>&1; then
     exit 1
 fi
 
+if ! gh auth status >/dev/null 2>&1; then
+    echo "Error: GitHub CLI is not authenticated. Please run 'gh auth login' or provide GH_TOKEN."
+    exit 1
+fi
+
 git add .
 git diff --cached --quiet || git commit -m "Release $TAG"
 
