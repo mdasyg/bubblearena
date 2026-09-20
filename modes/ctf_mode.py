@@ -2,12 +2,12 @@
 modes/ctf_mode.py - Capture The Flag arcade mode for Bubble Arena.
 """
 from modes.base_mode import BaseGameMode
-from constants import MODE_CTF
+from constants import MODE_CTF, GLOBAL_MATCH_TIME, MIN_ROUND_DURATION
 
 class CTFMode(BaseGameMode):
     """Capture The Flag mode: Fight for control of the golden flag."""
-    def __init__(self, score_limit=20000):
-        super().__init__(MODE_CTF)
+    def __init__(self, score_limit=20000, match_duration=GLOBAL_MATCH_TIME, min_round_duration=MIN_ROUND_DURATION):
+        super().__init__(MODE_CTF, match_duration=match_duration, min_round_duration=min_round_duration)
         self.score_limit = score_limit
 
     def on_player_popped(self, popping_player, trapped_bubble, result_type, points):

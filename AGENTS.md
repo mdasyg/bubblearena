@@ -113,7 +113,7 @@ python git_tool.py push
 - `assets/`: Spritesheets, sliced frames, audio resources.
 - `Animation/`: Raw source dragon spritesheets.
 - `tools/`: Build scripts (`build_player_animations.py`).
-- `tests/`: 9 test files, 64 automated unit tests.
+- `tests/`: 10 test files, 71 automated unit tests.
 - `Releases/`: Distributable standalone Windows executable (`BubbleArena.exe`).
 
 ## Development Rules
@@ -122,7 +122,7 @@ python git_tool.py push
 - **Client Executable Distribution**: Binaries (`Releases/`, `dist/`, `*.exe`) MUST NEVER be committed to Git. The `Releases/` folder is gitignored. Standalone binaries are published exclusively via GitHub Releases using `release-push.sh` or `release-push.ps1`.
 - **Minimal Dedicated Server Footprint**: The dedicated server (`bubblearena_server.py`) MUST remain 100% headless with zero dependencies on Pygame, SDL, or graphic assets. Only 4 files required: `bubblearena_server.py`, `constants.py`, `network/protocol.py`, `network/server_core.py` (and an empty `network/__init__.py`). Total footprint must remain under 50 KB.
 - **Resolution & Scaling**: Virtual canvas is fixed at `480 x 320`. Never change native physics coordinates or draw directly in window coordinates.
-- **Testing Integrity**: Every new feature or bugfix MUST include unit tests in `tests/`. All 64 existing tests must remain passing. Run `python -m unittest discover tests`.
+- **Testing Integrity**: Every new feature or bugfix MUST include unit tests in `tests/`. All 71 existing tests must remain passing. Run `python -m unittest discover tests`.
 - **Sprite Orientation Standard**: All base dragon sprite frames (`idle`, `walk`, `jump`, `fall`, `shoot`) stored on disk MUST face RIGHT by default. Runtime flip logic (`if facing < 0: pygame.transform.flip(...)`) expects right-facing base frames.
 - **Silent Mode Compatibility**: Never assume an audio endpoint exists. `SoundManager` must never crash when WASAPI/SDL audio is unavailable.
 - **Code Reuse**: Never duplicate server logic between `bubblearena_server.py` and `lan_server.py`; both must inherit from `network.server_core.BaseBubbleServer`.
@@ -130,14 +130,14 @@ python git_tool.py push
 ## Current State
 
 - **Authentic Retro Arcade Pacing:** Calibrated player speed (`105.0px/s`), smoothed ground acceleration (`800.0px/s²`), softened gravity (`640.0px/s²`), floaty jump impulse (`-260.0px/s`), and bubble burst speed (`220.0px/s`) for genuine classic *Bubble Bobble* platformer feel.
+- **Comprehensive Game Settings Customization (v1.1.0):** 8-option settings menu allowing players to toggle BGM music volume (Off / Low 35% / Normal 100%), SFX volume, customizable minimum stage duration (0s, 30s, 45s, 60s, 90s), round time limit (60s, 90s, 120s, 180s), bot opponent profiles (Mixed, All Aggressive, All Passive, All Standard), game speed multiplier (0.8x, 1.0x, 1.25x), and match rounds (1-10).
 - **CPU Bot Deliberation & Jump Cooldown:** Bot jump cooldown timer (`0.5s - 1.4s`) and widened horizontal steering deadzones eliminate frantic spasms and twitch jumping.
-- **Guaranteed Minimum Stage Duration:** Rounds are protected with `MIN_ROUND_DURATION = 45.0s`, preventing abrupt level cuts upon player elimination or early score milestones in multi-round matches.
+- **Guaranteed Minimum Stage Duration:** Protects rounds from premature endings upon player elimination or early score milestones, fully customizable from 0s to 90s across all game modes.
 - **Dynamic Platform Respawns:** `LevelManager.get_distinct_platform_spawns()` randomly spreads characters across arena platforms at match/round start and upon player death respawns instead of predictable static slot coordinates.
 - **14 Arena Stages Grid:** All 14 stages cleanly selectable in a 2-column x 7-row interactive grid with arrow navigation.
-- **Game Settings Menu:** Configurable game speed (`Slower 0.8x`, `Normal 1.0x`, `Faster 1.25x`) and configurable match rounds (1-10, default 4).
 - **Multi-Round Flow & Scoring:** Cumulative player scores, kills, deaths, and rescues persist across rounds. Top HUD shows `RND X/Y`. Mid-match transition banners announce upcoming rounds.
 - **Headless Dedicated Server:** Standalone console server with interactive CLI shell (`status`, `players`, `kick`, `ban`, `mode`, `level`, `bot`, `say`, etc.) and live ping RTT latency calculation.
-- **Automated Tests:** 64/64 automated unit tests passing across 9 test suites.
+- **Automated Tests:** 71/71 automated unit tests passing across 10 test suites.
 - **Release Executable:** Pre-compiled standalone Windows binary updated in `./Releases/BubbleArena.exe`.
 
 ## Active Priorities

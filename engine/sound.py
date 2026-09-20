@@ -18,6 +18,8 @@ class SoundManager:
         self.fast_bgm = False
         self.bgm_track_id = 0
         self.music_channel = None
+        self.music_volume = 1.0
+        self.sfx_volume = 1.0
 
         try:
             if not pygame.mixer.get_init():
@@ -201,13 +203,42 @@ class SoundManager:
 
         return pygame.mixer.Sound(buffer=buf)
 
+    def set_music_volume(self, volume):
+        """Sets BGM music volume (0.0=Off, 0.35=Low, 1.0=Normal)."""
+        old_vol = self.music_volume
+        self.music_volume = max(0.0, min(1.0, volume))
+        if self.music_channel:
+            try:
+                self.music_channel.set_volume(self.music_volume)
+            except Exception:
+                pass
+        if self.music_volume == 0.0:
+            if self.music_channel:
+                try:
+                    self.music_channel.stop()
+                except Exception:
+                    pass
+        elif old_vol == 0.0 and self.bgm_playing:
+            self.start_bgm(fast=self.fast_bgm)
+
+    def set_sfx_volume(self, volume):
+        """Sets sound effects volume (0.0=Off, 0.35=Low, 1.0=Normal)."""
+        self.sfx_volume = max(0.0, min(1.0, volume))
+        for snd in self.sfx.values():
+            if snd:
+                try:
+                    snd.set_volume(self.sfx_volume)
+                except Exception:
+                    pass
+
     def play_sfx(self, name):
         """Plays a registered sound effect by name."""
-        if not self.enabled:
+        if not self.enabled or self.sfx_volume <= 0.0:
             return
         try:
             snd = self.sfx.get(name)
             if snd:
+                snd.set_volume(self.sfx_volume)
                 snd.play()
         except Exception:
             pass
@@ -218,10 +249,13 @@ class SoundManager:
             return
         try:
             self.fast_bgm = fast
+            self.bgm_playing = True
+            if self.music_volume <= 0.0:
+                return
             snd = self.fast_bgm_sound if fast else self.normal_bgm
             if snd:
+                self.music_channel.set_volume(self.music_volume)
                 self.music_channel.play(snd, loops=-1)
-                self.bgm_playing = True
         except Exception:
             self.bgm_playing = False
 

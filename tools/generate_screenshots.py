@@ -264,6 +264,12 @@ def create_screenshots():
     engine.state = STATE_SETTINGS
     engine.speed_idx = 1
     engine.total_rounds = 4
+    engine.music_vol_idx = 2
+    engine.sfx_vol_idx = 2
+    engine.min_duration_idx = 2
+    engine.round_timer_idx = 1
+    engine.bot_personality_idx = 0
+    engine.menu.selected_idx = 2  # Highlight MUSIC VOLUME to feature the new setting!
     engine.render(0.016)
     save_frame("game_settings.png")
 

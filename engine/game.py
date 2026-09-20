@@ -10,6 +10,7 @@ from constants import (
     STATE_MENU, STATE_MODE_SELECT, STATE_LEVEL_SELECT, STATE_LOBBY,
     STATE_PLAYING, STATE_PAUSED, STATE_GAMEOVER, STATE_VICTORY, STATE_CONTROLS, STATE_LAN_ROOM,
     STATE_PLAYER_COUNT, STATE_SETTINGS, SPEED_OPTIONS, DEFAULT_ROUNDS, BOT_PERSONALITIES,
+    MUSIC_VOLUME_OPTIONS, SFX_VOLUME_OPTIONS, MIN_DURATION_OPTIONS, ROUND_TIMER_OPTIONS, BOT_PREFERENCE_OPTIONS,
     MODE_FFA, MODE_TEAM, MODE_CTF, GAME_MODES, PLAYER_COLORS,
     COLOR_GOLD, COLOR_RED, COLOR_GREEN, DEFAULT_PORT
 )
@@ -86,6 +87,15 @@ class GameEngine:
         self.round_transition_timer = 0.0
         self.round_transition_text = ""
 
+        # Audio & Game Customization Settings
+        self.music_vol_idx = 2  # Default Normal (100%)
+        self.sfx_vol_idx = 2    # Default Normal (100%)
+        self.min_duration_idx = 2  # Default 45s
+        self.min_round_duration = 45.0
+        self.round_timer_idx = 1  # Default 90s
+        self.round_match_time = 90.0
+        self.bot_personality_idx = 0  # Default Mixed (Random)
+
         # Entities
         self.players = []
         self.bubbles = []
@@ -97,14 +107,18 @@ class GameEngine:
         self._init_players()
 
     def setup_players_by_human_count(self, human_count=1):
-        """Sets the first `human_count` players as humans, and the remaining up to 4 as CPU bots with random personalities."""
+        """Sets the first `human_count` players as humans, and the remaining up to 4 as CPU bots with chosen personality preference."""
         human_count = max(1, min(4, human_count))
         self.players.clear()
+        pref = BOT_PREFERENCE_OPTIONS[self.bot_personality_idx][1]
         for i in range(4):
             sp = self.level_mgr.spawn_points.get(i, (40 + i * 100, 50))
             is_bot = (i >= human_count)
             team = 0 if i in (0, 2) else 1
-            pers = random.choice(BOT_PERSONALITIES) if is_bot else None
+            if is_bot:
+                pers = pref if pref is not None else random.choice(BOT_PERSONALITIES)
+            else:
+                pers = None
             p = Player(player_id=i, spawn_x=sp[0], spawn_y=sp[1], team=team, is_bot=is_bot, personality=pers)
             self.players.append(p)
 
@@ -119,15 +133,15 @@ class GameEngine:
         """Switches the active game mode rules."""
         self.current_mode_name = mode_name
         if mode_name == MODE_FFA:
-            self.game_mode = FFAMode()
+            self.game_mode = FFAMode(match_duration=self.round_match_time, min_round_duration=self.min_round_duration)
             for p in self.players:
                 p.team = p.id
         elif mode_name == MODE_TEAM:
-            self.game_mode = TeamMode()
+            self.game_mode = TeamMode(match_duration=self.round_match_time, min_round_duration=self.min_round_duration)
             for p in self.players:
                 p.team = 0 if p.id in (0, 2) else 1
         elif mode_name == MODE_CTF:
-            self.game_mode = CTFMode()
+            self.game_mode = CTFMode(match_duration=self.round_match_time, min_round_duration=self.min_round_duration)
             for p in self.players:
                 p.team = 0 if p.id in (0, 2) else 1
 
@@ -162,6 +176,8 @@ class GameEngine:
         else:
             self.flag = None
 
+        self.game_mode.match_duration = self.round_match_time
+        self.game_mode.min_round_duration = self.min_round_duration
         self.game_mode.start_round(self.players)
         self.sound_mgr.start_bgm(fast=False)
         self.round_transition_timer = 2.5
@@ -189,6 +205,8 @@ class GameEngine:
         else:
             self.flag = None
 
+        self.game_mode.match_duration = self.round_match_time
+        self.game_mode.min_round_duration = self.min_round_duration
         self.game_mode.start_round(self.players, reset_scores=False)
         self.sound_mgr.start_bgm(fast=False)
         self.round_transition_timer = 2.5
@@ -251,10 +269,10 @@ class GameEngine:
             elif self.state == STATE_SETTINGS:
                 if event.type == pygame.KEYDOWN:
                     if event.key in (pygame.K_UP, pygame.K_w):
-                        self.menu.selected_idx = (self.menu.selected_idx - 1) % 3
+                        self.menu.selected_idx = (self.menu.selected_idx - 1) % 8
                         self.sound_mgr.play_sfx("select")
                     elif event.key in (pygame.K_DOWN, pygame.K_s):
-                        self.menu.selected_idx = (self.menu.selected_idx + 1) % 3
+                        self.menu.selected_idx = (self.menu.selected_idx + 1) % 8
                         self.sound_mgr.play_sfx("select")
                     elif event.key in (pygame.K_LEFT, pygame.K_a):
                         if self.menu.selected_idx == 0:  # Game Speed
@@ -264,6 +282,28 @@ class GameEngine:
                         elif self.menu.selected_idx == 1:  # Rounds count
                             self.total_rounds = max(1, self.total_rounds - 1)
                             self.sound_mgr.play_sfx("select")
+                        elif self.menu.selected_idx == 2:  # Music Volume
+                            self.music_vol_idx = (self.music_vol_idx - 1) % len(MUSIC_VOLUME_OPTIONS)
+                            self.sound_mgr.set_music_volume(MUSIC_VOLUME_OPTIONS[self.music_vol_idx][1])
+                            self.sound_mgr.play_sfx("select")
+                        elif self.menu.selected_idx == 3:  # SFX Volume
+                            self.sfx_vol_idx = (self.sfx_vol_idx - 1) % len(SFX_VOLUME_OPTIONS)
+                            self.sound_mgr.set_sfx_volume(SFX_VOLUME_OPTIONS[self.sfx_vol_idx][1])
+                            self.sound_mgr.play_sfx("select")
+                        elif self.menu.selected_idx == 4:  # Min Stage Duration
+                            self.min_duration_idx = (self.min_duration_idx - 1) % len(MIN_DURATION_OPTIONS)
+                            self.min_round_duration = MIN_DURATION_OPTIONS[self.min_duration_idx][1]
+                            self.game_mode.min_round_duration = self.min_round_duration
+                            self.sound_mgr.play_sfx("select")
+                        elif self.menu.selected_idx == 5:  # Round Time Limit
+                            self.round_timer_idx = (self.round_timer_idx - 1) % len(ROUND_TIMER_OPTIONS)
+                            self.round_match_time = ROUND_TIMER_OPTIONS[self.round_timer_idx][1]
+                            self.game_mode.match_duration = self.round_match_time
+                            self.game_mode.match_time_remaining = self.round_match_time
+                            self.sound_mgr.play_sfx("select")
+                        elif self.menu.selected_idx == 6:  # Bot Personalities
+                            self.bot_personality_idx = (self.bot_personality_idx - 1) % len(BOT_PREFERENCE_OPTIONS)
+                            self.sound_mgr.play_sfx("select")
                     elif event.key in (pygame.K_RIGHT, pygame.K_d):
                         if self.menu.selected_idx == 0:  # Game Speed
                             self.speed_idx = (self.speed_idx + 1) % len(SPEED_OPTIONS)
@@ -272,10 +312,57 @@ class GameEngine:
                         elif self.menu.selected_idx == 1:  # Rounds count
                             self.total_rounds = min(10, self.total_rounds + 1)
                             self.sound_mgr.play_sfx("select")
+                        elif self.menu.selected_idx == 2:  # Music Volume
+                            self.music_vol_idx = (self.music_vol_idx + 1) % len(MUSIC_VOLUME_OPTIONS)
+                            self.sound_mgr.set_music_volume(MUSIC_VOLUME_OPTIONS[self.music_vol_idx][1])
+                            self.sound_mgr.play_sfx("select")
+                        elif self.menu.selected_idx == 3:  # SFX Volume
+                            self.sfx_vol_idx = (self.sfx_vol_idx + 1) % len(SFX_VOLUME_OPTIONS)
+                            self.sound_mgr.set_sfx_volume(SFX_VOLUME_OPTIONS[self.sfx_vol_idx][1])
+                            self.sound_mgr.play_sfx("select")
+                        elif self.menu.selected_idx == 4:  # Min Stage Duration
+                            self.min_duration_idx = (self.min_duration_idx + 1) % len(MIN_DURATION_OPTIONS)
+                            self.min_round_duration = MIN_DURATION_OPTIONS[self.min_duration_idx][1]
+                            self.game_mode.min_round_duration = self.min_round_duration
+                            self.sound_mgr.play_sfx("select")
+                        elif self.menu.selected_idx == 5:  # Round Time Limit
+                            self.round_timer_idx = (self.round_timer_idx + 1) % len(ROUND_TIMER_OPTIONS)
+                            self.round_match_time = ROUND_TIMER_OPTIONS[self.round_timer_idx][1]
+                            self.game_mode.match_duration = self.round_match_time
+                            self.game_mode.match_time_remaining = self.round_match_time
+                            self.sound_mgr.play_sfx("select")
+                        elif self.menu.selected_idx == 6:  # Bot Personalities
+                            self.bot_personality_idx = (self.bot_personality_idx + 1) % len(BOT_PREFERENCE_OPTIONS)
+                            self.sound_mgr.play_sfx("select")
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_f):
-                        if self.menu.selected_idx == 2:  # Back to Main Menu
+                        if self.menu.selected_idx == 7:  # Back to Main Menu
                             self.menu.selected_idx = 0
                             self.state = STATE_MENU
+                            self.sound_mgr.play_sfx("select")
+                        else:
+                            # Forward cycle option on Enter / Action
+                            if self.menu.selected_idx == 0:
+                                self.speed_idx = (self.speed_idx + 1) % len(SPEED_OPTIONS)
+                                self.game_speed_mult = SPEED_OPTIONS[self.speed_idx][1]
+                            elif self.menu.selected_idx == 1:
+                                self.total_rounds = 1 if self.total_rounds >= 10 else self.total_rounds + 1
+                            elif self.menu.selected_idx == 2:
+                                self.music_vol_idx = (self.music_vol_idx + 1) % len(MUSIC_VOLUME_OPTIONS)
+                                self.sound_mgr.set_music_volume(MUSIC_VOLUME_OPTIONS[self.music_vol_idx][1])
+                            elif self.menu.selected_idx == 3:
+                                self.sfx_vol_idx = (self.sfx_vol_idx + 1) % len(SFX_VOLUME_OPTIONS)
+                                self.sound_mgr.set_sfx_volume(SFX_VOLUME_OPTIONS[self.sfx_vol_idx][1])
+                            elif self.menu.selected_idx == 4:
+                                self.min_duration_idx = (self.min_duration_idx + 1) % len(MIN_DURATION_OPTIONS)
+                                self.min_round_duration = MIN_DURATION_OPTIONS[self.min_duration_idx][1]
+                                self.game_mode.min_round_duration = self.min_round_duration
+                            elif self.menu.selected_idx == 5:
+                                self.round_timer_idx = (self.round_timer_idx + 1) % len(ROUND_TIMER_OPTIONS)
+                                self.round_match_time = ROUND_TIMER_OPTIONS[self.round_timer_idx][1]
+                                self.game_mode.match_duration = self.round_match_time
+                                self.game_mode.match_time_remaining = self.round_match_time
+                            elif self.menu.selected_idx == 6:
+                                self.bot_personality_idx = (self.bot_personality_idx + 1) % len(BOT_PREFERENCE_OPTIONS)
                             self.sound_mgr.play_sfx("select")
                     elif event.key == pygame.K_ESCAPE:
                         self.menu.selected_idx = 0
@@ -833,7 +920,12 @@ class GameEngine:
                 self.virtual_screen,
                 SPEED_OPTIONS[self.speed_idx][0],
                 self.total_rounds,
-                dt
+                dt,
+                music_vol_name=MUSIC_VOLUME_OPTIONS[self.music_vol_idx][0],
+                sfx_vol_name=SFX_VOLUME_OPTIONS[self.sfx_vol_idx][0],
+                min_duration_name=MIN_DURATION_OPTIONS[self.min_duration_idx][0],
+                round_timer_name=ROUND_TIMER_OPTIONS[self.round_timer_idx][0],
+                bot_pref_name=BOT_PREFERENCE_OPTIONS[self.bot_personality_idx][0]
             )
 
         elif self.state == STATE_CONTROLS:

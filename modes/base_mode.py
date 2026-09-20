@@ -5,18 +5,19 @@ from constants import GLOBAL_MATCH_TIME, HURRY_UP_TIME, MIN_ROUND_DURATION
 
 class BaseGameMode:
     """Base class for all arcade match modes."""
-    def __init__(self, name):
+    def __init__(self, name, match_duration=GLOBAL_MATCH_TIME, min_round_duration=MIN_ROUND_DURATION):
         self.name = name
-        self.match_time_remaining = GLOBAL_MATCH_TIME
+        self.match_duration = match_duration
+        self.match_time_remaining = match_duration
         self.round_elapsed_time = 0.0
-        self.min_round_duration = MIN_ROUND_DURATION
+        self.min_round_duration = min_round_duration
         self.is_hurry_up = False
         self.is_match_over = False
         self.winner_info = None
 
     def start_round(self, players, reset_scores=True):
         """Initializes match/round state for all players."""
-        self.match_time_remaining = GLOBAL_MATCH_TIME
+        self.match_time_remaining = self.match_duration
         self.round_elapsed_time = 0.0
         self.is_hurry_up = False
         self.is_match_over = False

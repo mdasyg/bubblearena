@@ -2,12 +2,12 @@
 modes/ffa_mode.py - Solo Free-For-All 4-player deathmatch mode.
 """
 from modes.base_mode import BaseGameMode
-from constants import MODE_FFA
+from constants import MODE_FFA, GLOBAL_MATCH_TIME, MIN_ROUND_DURATION
 
 class FFAMode(BaseGameMode):
     """4 individual players, every other player is an opponent."""
-    def __init__(self, score_limit=20000):
-        super().__init__(MODE_FFA)
+    def __init__(self, score_limit=20000, match_duration=GLOBAL_MATCH_TIME, min_round_duration=MIN_ROUND_DURATION):
+        super().__init__(MODE_FFA, match_duration=match_duration, min_round_duration=min_round_duration)
         self.score_limit = score_limit
 
     def on_player_popped(self, popping_player, trapped_bubble, result_type, points):

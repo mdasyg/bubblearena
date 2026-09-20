@@ -98,12 +98,23 @@ Configurable directly from the title screen under **GAME SETTINGS**:
 *Note: Scales game physics, timers, cooldowns, and bubble velocities proportionally while preserving smooth 60 FPS animation rendering.*
 
 ### 2. Configurable Match Rounds
-- Adjust match duration from **1 to 10 rounds** (default: **4 rounds**).
+- Adjust tournament match duration from **1 to 10 rounds** (default: **4 rounds**).
 - Cumulative statistics (Score, Kills, Deaths, and Rescues) are preserved across rounds.
 - Top HUD displays live round progress: `RND X/Y`.
-- Mid-match round transitions display a stylish arcade celebration banner announcing the upcoming round.
 
-### 3. Justified Match Results Scoreboard
+### 3. Audio Volume & BGM Music Mute
+- **`MUSIC VOLUME`**: Select **`Off`** (mute), **`Low (35%)`**, or **`Normal (100%)`**. Adjusts procedural chiptune background music loudness in real time.
+- **`SFX VOLUME`**: Select **`Off`** (silent SFX), **`Low (35%)`**, or **`Normal (100%)`** for bubble shoots, pops, jumps, sirens, and fanfares.
+
+### 4. Minimum Stage Duration (`MIN STAGE TIME`)
+- Choose between **`None (0s)`**, **`30 Seconds`**, **`45s (Default)`**, **`60 Seconds`**, or **`90 Seconds`**.
+- Protects stages from cutting short prematurely upon player deaths or early score milestones, guaranteeing players can respawn and complete their platform battles.
+
+### 5. Round Time Limit & Bot Opponent Profiles
+- **`ROUND TIME LIMIT`**: Configure match countdown clock between **`60s (Quick)`**, **`90s (Normal)`**, **`120s (Extended)`**, and **`180s (Endurance)`**.
+- **`BOT PERSONALITIES`**: Select CPU bot archetypes: **`Mixed (Random)`**, **`All Aggressive`**, **`All Passive`**, or **`All Standard`**.
+
+### 6. Justified Match Results Scoreboard
 - At the conclusion of the final round, the **MATCH FINISHED!** celebration renders a table with strictly justified columns:
   - `PLAYER`: Player identity and nickname
   - `SCORE`: Cumulative score points
@@ -423,7 +434,7 @@ BubbleArena/
 ├── ui/
 │   ├── hud.py               # HUD: Scores, timer, level name, hurry-up banners
 │   └── menu.py              # MenuSystem: Title, mode select, level select, lobbies
-└── tests/                   # Automated unittest suite (64 tests)
+└── tests/                   # Automated unittest suite (71 tests)
 ```
 
 ---
@@ -460,7 +471,7 @@ The official release executable is located in:
 
 ## 🧪 Automated Test Suite
 
-Bubble Arena includes a comprehensive suite of 64 automated unit and integration tests:
+Bubble Arena includes a comprehensive suite of 71 automated unit and integration tests:
 
 ```bash
 python -m unittest discover tests
@@ -476,6 +487,7 @@ python -m unittest discover tests
 - **`test_simulation.py`**: 150-frame end-to-end game simulation across all 3 game modes.
 - **`test_bot_personalities.py`**: AI decision engine, personality archetypes (Aggressive, Passive, Standard), CTF retrieval/carrier delivery tactics, team rescue priorities, and bonus utility appraisal.
 - **`test_player_count_and_lan_modes.py`**: Local human count ratios (1-4 players + bots), LAN game mode cycling & sync, and sound card silent-mode fallback.
+- **`test_settings_and_audio.py`**: Music volume controls & mute, SFX volume attenuation, custom minimum stage durations (0s-90s) with early win protection across FFA/Team/CTF, round countdown timers, bot personality preferences, and 8-option settings screen navigation.
 
 ---
 

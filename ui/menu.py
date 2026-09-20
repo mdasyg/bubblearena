@@ -167,46 +167,72 @@ class MenuSystem:
         footer = self.font_info.render("[UP/DOWN/LEFT/RIGHT] Choose Level   [ENTER] Select   [ESC] Return", True, COLOR_GRAY)
         surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 14)))
 
-    def draw_settings_screen(self, surface, speed_name, rounds_count, dt):
-        """Settings screen configuring game speed and match rounds."""
+    def draw_settings_screen(self, surface, speed_name, rounds_count, dt,
+                             music_vol_name="Normal (100%)", sfx_vol_name="Normal (100%)",
+                             min_duration_name="45s (Default)", round_timer_name="90s (Normal)",
+                             bot_pref_name="Mixed (Random)"):
+        """Settings screen configuring audio, speed, round duration, match timer, and bot profiles."""
         self.anim_timer += dt
         surface.fill(COLOR_BLACK)
 
+        # Title & Subtitle
         title = self.font_title.render("GAME SETTINGS", True, COLOR_GOLD)
-        surface.blit(title, title.get_rect(center=(VIRTUAL_WIDTH // 2, 35)))
+        surface.blit(title, title.get_rect(center=(VIRTUAL_WIDTH // 2, 16)))
 
-        sub = self.font_info.render("Tune game pacing and tournament duration", True, COLOR_CYAN)
-        surface.blit(sub, sub.get_rect(center=(VIRTUAL_WIDTH // 2, 58)))
+        sub = self.font_info.render("AUDIO, PACING, DURATION & MATCH CUSTOMIZATION", True, COLOR_CYAN)
+        surface.blit(sub, sub.get_rect(center=(VIRTUAL_WIDTH // 2, 32)))
 
         options = [
             ("GAME SPEED", f"< {speed_name} >", "Adjust physics, movement, and projectile pacing"),
-            ("MATCH ROUNDS", f"< {rounds_count} Rounds >", "Total rounds played before calculating final winner"),
-            ("CONFIRM & RETURN", "", "Save settings and return to main menu")
+            ("MATCH ROUNDS", f"< {rounds_count} Rounds >", "Total rounds played before calculating tournament champion"),
+            ("MUSIC VOLUME", f"< {music_vol_name} >", "Turn off music or select low (35%) or normal volume"),
+            ("SFX VOLUME", f"< {sfx_vol_name} >", "Adjust sound effects volume for bubble shoots, pops, and jumps"),
+            ("MIN STAGE TIME", f"< {min_duration_name} >", "Guaranteed minimum stage time before an early score win"),
+            ("ROUND TIME LIMIT", f"< {round_timer_name} >", "Countdown match duration timer for each arena round"),
+            ("BOT PERSONALITIES", f"< {bot_pref_name} >", "Configure CPU bot behavior archetypes or keep randomized"),
+            ("CONFIRM & RETURN", "", "Save settings and return to the main menu")
         ]
 
-        start_y = 90
+        start_y = 46
+        pitch = 25
+        card_w = VIRTUAL_WIDTH - 56
+        card_h = 22
+
         for i, (opt_name, opt_val, opt_desc) in enumerate(options):
             is_sel = (i == self.selected_idx)
-            col = COLOR_GOLD if is_sel else COLOR_WHITE
-            card_rect = pygame.Rect(40, start_y + i * 50, VIRTUAL_WIDTH - 80, 42)
+            card_y = start_y + i * pitch
+            card_rect = pygame.Rect(28, card_y, card_w, card_h)
 
-            bg_col = (50, 50, 90) if is_sel else (25, 28, 45)
-            pygame.draw.rect(surface, bg_col, card_rect, border_radius=4)
-            pygame.draw.rect(surface, col, card_rect, 2 if is_sel else 1, border_radius=4)
+            bg_col = (45, 50, 85) if is_sel else (22, 25, 38)
+            border_col = COLOR_GOLD if is_sel else (55, 60, 85)
+            pygame.draw.rect(surface, bg_col, card_rect, border_radius=3)
+            pygame.draw.rect(surface, border_col, card_rect, 2 if is_sel else 1, border_radius=3)
 
-            # Option Name & Value
+            # Left Label
+            lbl_left = f"{i+1}. {opt_name}"
+            col_left = COLOR_GOLD if is_sel else COLOR_WHITE
+            surf_left = self.font_info.render(lbl_left, True, col_left)
+            surface.blit(surf_left, (card_rect.x + 10, card_rect.y + 4))
+
+            # Right Value (if any)
             if opt_val:
-                label_str = f"{i+1}. {opt_name}:  {opt_val}"
-            else:
-                label_str = f"{i+1}. {opt_name}"
-            lbl_surf = self.font_menu.render(label_str, True, col)
-            surface.blit(lbl_surf, (card_rect.x + 14, card_rect.y + 7))
+                col_right = COLOR_YELLOW if is_sel else COLOR_CYAN
+                surf_right = self.font_info.render(opt_val, True, col_right)
+                r_rect = surf_right.get_rect(right=card_rect.right - 10, centery=card_rect.centery)
+                surface.blit(surf_right, r_rect)
 
-            desc_surf = self.font_info.render(opt_desc, True, COLOR_YELLOW if is_sel else COLOR_GRAY)
-            surface.blit(desc_surf, (card_rect.x + 14, card_rect.y + 24))
+        # Contextual Description Banner
+        cur_desc = options[self.selected_idx][2] if 0 <= self.selected_idx < len(options) else ""
+        desc_rect = pygame.Rect(28, 252, card_w, 30)
+        pygame.draw.rect(surface, (16, 20, 36), desc_rect, border_radius=4)
+        pygame.draw.rect(surface, (60, 75, 110), desc_rect, 1, border_radius=4)
 
+        desc_surf = self.font_info.render(f">> {cur_desc} <<", True, COLOR_GOLD)
+        surface.blit(desc_surf, desc_surf.get_rect(center=desc_rect.center))
+
+        # Footer
         footer = self.font_info.render("[UP/DOWN] Select   [LEFT/RIGHT] Change Value   [ENTER/ESC] Return", True, COLOR_GRAY)
-        surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 16)))
+        surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, 304)))
 
     def draw_controls(self, surface):
         """Controls & Mechanics guide screen."""
@@ -538,52 +564,4 @@ class MenuSystem:
 
         footer = self.font_menu.render("Press [ENTER] for Rematch / [ESC] for Main Menu", True, COLOR_YELLOW)
         surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 32)))
-
-    def draw_settings_screen(self, surface, speed_label, rounds_count, dt):
-        """Renders the Game Settings configuration screen (Speed and Match Rounds)."""
-        self.anim_timer += dt
-        surface.fill(COLOR_BLACK)
-
-        # Title Banner
-        title_surf = self.font_title.render("GAME SETTINGS", True, COLOR_GOLD)
-        surface.blit(title_surf, title_surf.get_rect(center=(VIRTUAL_WIDTH // 2, 45)))
-        sub_surf = self.font_info.render("CONFIGURE MATCH SPEED & ROUNDS DURATION", True, COLOR_CYAN)
-        surface.blit(sub_surf, sub_surf.get_rect(center=(VIRTUAL_WIDTH // 2, 70)))
-
-        # Card container
-        card_rect = pygame.Rect(40, 95, VIRTUAL_WIDTH - 80, 160)
-        pygame.draw.rect(surface, (20, 24, 40), card_rect, border_radius=6)
-        pygame.draw.rect(surface, COLOR_GOLD, card_rect, 1, border_radius=6)
-
-        # Settings items
-        items = [
-            ("GAME SPEED", f"<  {speed_label}  >"),
-            ("MATCH ROUNDS", f"<  {rounds_count} Rounds  >"),
-            ("BACK TO MAIN MENU", "")
-        ]
-
-        for i, (label, val) in enumerate(items):
-            item_y = 125 + i * 42
-            is_selected = (self.selected_idx == i)
-
-            # Highlight row box if selected
-            if is_selected:
-                pulse = int(math.sin(self.anim_timer * 6.0) * 20 + 230)
-                row_rect = pygame.Rect(55, item_y - 8, VIRTUAL_WIDTH - 110, 32)
-                pygame.draw.rect(surface, (30, 42, 70), row_rect, border_radius=4)
-                pygame.draw.rect(surface, (pulse, pulse, 50), row_rect, 1, border_radius=4)
-
-            col_label = COLOR_YELLOW if is_selected else COLOR_WHITE
-            lbl_surf = self.font_menu.render(label, True, col_label)
-            surface.blit(lbl_surf, (75, item_y))
-
-            if val:
-                col_val = COLOR_GOLD if is_selected else COLOR_CYAN
-                val_surf = self.font_menu.render(val, True, col_val)
-                surface.blit(val_surf, val_surf.get_rect(right=VIRTUAL_WIDTH - 75, centery=lbl_surf.get_rect(topleft=(75, item_y)).centery))
-
-        # Bottom Instructions Footer
-        hint_str = "[UP/DOWN] Select Option   [LEFT/RIGHT] Change Value   [ENTER/ESC] Return"
-        hint_surf = self.font_info.render(hint_str, True, COLOR_GRAY)
-        surface.blit(hint_surf, hint_surf.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 35)))
 

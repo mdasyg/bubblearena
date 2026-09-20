@@ -18,7 +18,7 @@ VIRTUAL_WIDTH = 480
 VIRTUAL_HEIGHT = 320
 FPS = 60
 TITLE = "BUBBLE ARENA - 4P Retro Arcade Brawler"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 # --- Physics Constants ---
 GRAVITY = 640.0             # pixels/sec^2
@@ -157,6 +157,46 @@ SPEED_OPTIONS = [
     ("Faster (1.25x)", SPEED_FASTER)
 ]
 DEFAULT_ROUNDS = 4
+
+# --- Audio Volume Settings ---
+VOLUME_OFF = 0.0
+VOLUME_LOW = 0.35
+VOLUME_NORMAL = 1.0
+
+MUSIC_VOLUME_OPTIONS = [
+    ("Off", VOLUME_OFF),
+    ("Low (35%)", VOLUME_LOW),
+    ("Normal (100%)", VOLUME_NORMAL)
+]
+
+SFX_VOLUME_OPTIONS = [
+    ("Off", VOLUME_OFF),
+    ("Low (35%)", VOLUME_LOW),
+    ("Normal (100%)", VOLUME_NORMAL)
+]
+
+# --- Stage Duration & Timer Settings ---
+MIN_DURATION_OPTIONS = [
+    ("None (0s)", 0.0),
+    ("30 Seconds", 30.0),
+    ("45s (Default)", 45.0),
+    ("60 Seconds", 60.0),
+    ("90 Seconds", 90.0)
+]
+
+ROUND_TIMER_OPTIONS = [
+    ("60s (Quick)", 60.0),
+    ("90s (Normal)", 90.0),
+    ("120s (Extended)", 120.0),
+    ("180s (Endurance)", 180.0)
+]
+
+BOT_PREFERENCE_OPTIONS = [
+    ("Mixed (Random)", None),
+    ("All Aggressive", "Aggressive"),
+    ("All Passive", "Passive"),
+    ("All Standard", "Standard")
+]
 
 # --- CPU Bot Personalities ---
 BOT_PERSONALITY_AGGRESSIVE = "Aggressive"
