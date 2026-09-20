@@ -90,7 +90,7 @@ if (-not $ghCmd) {
 }
 
 # Check GitHub CLI authentication
-$authStatus = & $ghExe auth status 2>&1 | Out-String
+$null = cmd.exe /c "`"$ghExe`" auth status >nul 2>&1"
 if ($LASTEXITCODE -ne 0) {
     Write-Error "GitHub CLI is not authenticated. Please run 'gh auth login' or provide a GH_TOKEN environment variable."
     exit 1
@@ -98,7 +98,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # Stage and commit repository updates if any
 git add .
-$null = git diff --cached --quiet 2>&1
+$null = cmd.exe /c "git diff --cached --quiet"
 if ($LASTEXITCODE -ne 0) {
     git commit -m "Release $Tag"
 }
@@ -114,8 +114,13 @@ git push origin "$Tag" --force
 
 # Upload to GitHub Releases
 Write-Host "Publishing release via GitHub CLI..."
-$viewOut = & $ghExe release view "$Tag" 2>&1 | Out-String
+$releaseExists = $false
+$null = cmd.exe /c "`"$ghExe`" release view `"$Tag`" >nul 2>&1"
 if ($LASTEXITCODE -eq 0) {
+    $releaseExists = $true
+}
+
+if ($releaseExists) {
     & $ghExe release upload "$Tag" "$ReleaseFile" --clobber
 } else {
     & $ghExe release create "$Tag" "$ReleaseFile" --title "$Tag" --notes "Release $Tag"
