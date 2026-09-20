@@ -12,7 +12,7 @@ from constants import (
     STATE_PLAYER_COUNT, STATE_SETTINGS, SPEED_OPTIONS, DEFAULT_ROUNDS, BOT_PERSONALITIES,
     MUSIC_VOLUME_OPTIONS, SFX_VOLUME_OPTIONS, MIN_DURATION_OPTIONS, ROUND_TIMER_OPTIONS, BOT_PREFERENCE_OPTIONS,
     MODE_FFA, MODE_TEAM, MODE_CTF, GAME_MODES, PLAYER_COLORS,
-    COLOR_GOLD, COLOR_RED, COLOR_GREEN, DEFAULT_PORT
+    COLOR_GOLD, COLOR_RED, COLOR_GREEN, DEFAULT_PORT, BUBBLE_BOUNCE_SPEED
 )
 from engine.sound import SoundManager
 from engine.sprites import SpriteManager
@@ -601,7 +601,14 @@ class GameEngine:
 
             # Find all touching / connected bubbles in proximity
             all_remaining = [b for b in self.bubbles if b not in popped_bubbles and b not in queue]
-            all_remaining_trapped = [tb for tb in self.trapped_bubbles if tb not in popped_trapped and tb not in queue]
+            # Trapped bubbles only chain-pop if an active other player initiated the pop
+            if popping_player is not None:
+                all_remaining_trapped = [
+                    tb for tb in self.trapped_bubbles
+                    if tb not in popped_trapped and tb not in queue and tb.trapped_player.id != popping_player.id
+                ]
+            else:
+                all_remaining_trapped = []
 
             for other in (all_remaining + all_remaining_trapped):
                 dx = current.x - other.x
@@ -630,8 +637,8 @@ class GameEngine:
 
         # Process all chained trapped bubbles
         for tb in popped_trapped:
-            tb.is_alive = False
-            if popping_player:
+            if popping_player and popping_player.id != tb.trapped_player.id:
+                tb.is_alive = False
                 result = tb.check_pop_by_player(popping_player, is_team_mode=is_team_mode, force_pop=True)
                 if result:
                     res_type, points = result
@@ -650,15 +657,13 @@ class GameEngine:
                         self.particle_mgr.spawn_sparkles(tb.x, tb.y, count=14)
                         self.particle_mgr.add_floating_text(f"RESCUE +{combo_pts}!", tb.x, tb.y - 14, color=COLOR_GREEN)
                         self.sound_mgr.play_sfx("rescue")
-                else:
-                    # Guarantee trapped player is never left orphaned
+            else:
+                # Expired naturally after full lifespan
+                if tb.age >= tb.lifespan:
+                    tb.is_alive = False
                     tb.trapped_player.free_from_bubble(was_rescued=False)
                     self.particle_mgr.spawn_pop_burst(tb.x, tb.y, count=12)
-            else:
-                # Expired or untargeted pop -> free player
-                tb.trapped_player.free_from_bubble(was_rescued=False)
-                self.particle_mgr.spawn_pop_burst(tb.x, tb.y, count=12)
-                self.sound_mgr.play_sfx("pop")
+                    self.sound_mgr.play_sfx("pop")
 
         # Big banner if massive chain explosion!
         if chain_count >= 3 and popping_player:
@@ -740,7 +745,10 @@ class GameEngine:
         spawned_bubbles = []
         for p in self.players:
             if p.is_trapped:
-                # Check struggle inputs
+                # Clear bot actions when trapped
+                if p.is_bot:
+                    p.bot_action = {}
+                # Check struggle inputs (cosmetic struggle wobble)
                 actions = self.input_handler.poll_inputs(p.id, is_bot=p.is_bot, bot_action=p.bot_action)
                 if actions.get("shoot") or actions.get("struggle") or actions.get("jump"):
                     # Find player's trapped bubble
@@ -768,7 +776,7 @@ class GameEngine:
 
         self.bubbles.extend(spawned_bubbles)
 
-        # 3. Update Bubbles & Opponent Trapping / Head-Butt Pop Check
+        # 3. Update Bubbles & Opponent Trapping
         active_bubbles = []
         bubbles_to_pop = []
 
@@ -778,22 +786,7 @@ class GameEngine:
                 bubbles_to_pop.append((b, None))
                 continue
 
-            # Check if an active player pops an empty bubble (head-butt from below or star shield contact)
-            popped_by_p = None
-            for p in self.players:
-                if p.is_alive and not p.is_trapped and b.is_floating:
-                    # Head-butt from below (p.vy < 0 and head hitting bubble bottom)
-                    if p.vy < 0 and p.rect.top <= b.rect.bottom and p.rect.colliderect(b.rect):
-                        popped_by_p = p
-                        break
-                    # Star shield invulnerability contact pop
-                    elif p.invulnerable_timer > 0 and p.rect.colliderect(b.rect):
-                        popped_by_p = p
-                        break
-
-            if popped_by_p:
-                bubbles_to_pop.append((b, popped_by_p))
-                continue
+            # Empty floating bubbles do NOT pop when jumped on; they serve as bouncy trampolines.
 
             # Check collision with other players to trap them
             trapped_someone = False
@@ -803,6 +796,9 @@ class GameEngine:
                     is_enemy = (self.current_mode_name == MODE_FFA) or (target_p.team != b.owner_team)
                     if is_enemy and b.rect.colliderect(target_p.rect):
                         # TRAP THE PLAYER!
+                        target_p.bot_action = {}
+                        target_p.vx = 0.0
+                        target_p.vy = 0.0
                         tb = TrappedBubble(target_p, b.owner_id, b.owner_team)
                         self.trapped_bubbles.append(tb)
                         self.particle_mgr.spawn_sparkles(target_p.x, target_p.y, count=10)
@@ -826,18 +822,23 @@ class GameEngine:
 
         for tb in list(self.trapped_bubbles):
             if not tb.update(dt, platforms):
-                # Expired or struggle escaped
+                # Expired naturally after 30s lifespan
                 trapped_to_pop.append((tb, None))
                 continue
 
-            # Check if any active player touches this trapped bubble to pop it
+            # Check if any other active player touches this trapped bubble to pop it
             popped_by_player = None
             for p in self.players:
-                if p.is_alive and not p.is_trapped and tb.rect.colliderect(p.rect):
+                if p.is_alive and not p.is_trapped and p.id != tb.trapped_player.id and tb.rect.colliderect(p.rect):
                     popped_by_player = p
                     break
 
             if popped_by_player:
+                # If popping player jumped or fell on the trapped bubble from above, bounce them up!
+                if popped_by_player.vy >= -40.0 and popped_by_player.rect.bottom <= tb.rect.centery + 6:
+                    popped_by_player.vy = BUBBLE_BOUNCE_SPEED
+                    popped_by_player.bubble_ride_timer = 0.35
+                    self.sound_mgr.play_sfx("bounce")
                 trapped_to_pop.append((tb, popped_by_player))
             else:
                 active_trapped.append(tb)

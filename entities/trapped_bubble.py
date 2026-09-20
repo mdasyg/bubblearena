@@ -34,24 +34,24 @@ class TrappedBubble:
         self.trapped_player.is_trapped = True
         self.trapped_player.vx = 0.0
         self.trapped_player.vy = 0.0
+        if getattr(self.trapped_player, "is_bot", False):
+            self.trapped_player.bot_action = {}
 
     def register_struggle(self):
-        """Called when trapped player mashes action buttons."""
+        """Called when trapped player mashes action buttons (cosmetic struggle wobble)."""
         self.struggle_count += 1
-        # Each press shaves off ~1.5s of remaining time
-        self.age += 1.5
+        self.sway_phase += 0.25  # Visual wiggle wobble, but never self-breaks
 
     def update(self, dt, platforms):
-        """Floats upward, checks 30s expiration or escape."""
+        """Floats upward, checks 30s expiration."""
         self.age += dt
         self.anim_timer += dt
         if self.anim_timer >= 0.12:
             self.anim_timer = 0.0
             self.anim_frame = (self.anim_frame + 1) % 4
 
-        # Check if struggle escape complete or 30s timeout
-        if self.struggle_count >= STRUGGLE_ESCAPE_PRESSES or self.age >= self.lifespan:
-            # Auto-pop / struggle escape -> Free the player!
+        # Only expires naturally after full lifespan (cannot be broken by trapped player)
+        if self.age >= self.lifespan:
             self.is_alive = False
             self.trapped_player.free_from_bubble(was_rescued=False)
             return False
@@ -102,15 +102,14 @@ class TrappedBubble:
         or when popped via chain explosion (force_pop=True):
         Returns: ('KILL', points), ('RESCUE', points), or None
         """
+        # The trapped player CANNOT pop their own bubble
+        if popping_player.id == self.trapped_player.id:
+            return None
+
         if not force_pop and not self.rect.colliderect(popping_player.rect):
             return None
 
         self.is_alive = False
-
-        # If popping player is the trapped player themselves (e.g. self-triggered chain pop)
-        if popping_player.id == self.trapped_player.id:
-            self.trapped_player.free_from_bubble(was_rescued=False)
-            return ("RESCUE", 200)
 
         # Team vs Opponent logic
         is_teammate = is_team_mode and (popping_player.team == self.trapped_player.team)

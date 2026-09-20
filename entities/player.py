@@ -56,6 +56,7 @@ class Player:
         self.shoot_anim_timer = 0.0
         self.bubble_ride_timer = 0.0
         self.bot_jump_cooldown = 0.0
+        self.is_jump_held = False
 
         # Power-up buff timers
         self.speed_buff_timer = 0.0
@@ -149,6 +150,7 @@ class Player:
                 self.vx = min(0.0, self.vx + fric * dt)
 
         # Jump (immediate if grounded, otherwise buffered)
+        self.is_jump_held = bool(inputs.get("jump"))
         if inputs.get("jump"):
             self.jump_buffer_timer = 0.14
             if self.is_grounded or self.coyote_timer > 0.0:
@@ -313,14 +315,20 @@ class Player:
 
         # --- 4. Bubble Riding & Trampoline Jumping ---
         # When falling or jumping on top of any floating bubble, bounce upward!
-        all_floating_bubbles = [b for b in bubbles if b.is_floating] + [tb for tb in trapped_bubbles if tb.is_alive]
+        # Players can bounce repeatedly on any bubble without it breaking, and climb vertical streams.
+        all_floating_bubbles = [b for b in bubbles if b.is_alive and b.is_floating]
         for b in all_floating_bubbles:
-            # Check landing on top of bubble
-            if self.vy > 0 and prev_bottom <= b.rect.centery and self.rect.bottom >= b.rect.top:
-                if abs(self.rect.centerx - b.rect.centerx) < b.radius + 6:
+            # Check landing on top of bubble when descending or near jump apex
+            if self.vy >= -50.0 and prev_bottom <= b.rect.centery + 6 and self.rect.bottom >= b.rect.top - 3:
+                if abs(self.rect.centerx - b.rect.centerx) <= b.radius + 8:
                     self.rect.bottom = b.rect.top
                     self.y = self.rect.centery
-                    self.vy = BUBBLE_BOUNCE_SPEED  # Trampoline bounce!
+                    # Holding or pressing Jump applies a boosted super-bounce
+                    if self.jump_buffer_timer > 0.0 or getattr(self, "is_jump_held", False):
+                        self.vy = BUBBLE_BOUNCE_SPEED * 1.15
+                        self.jump_buffer_timer = 0.0
+                    else:
+                        self.vy = BUBBLE_BOUNCE_SPEED
                     self.is_grounded = False
                     self.bubble_ride_timer = 0.35
                     if sound_mgr:
