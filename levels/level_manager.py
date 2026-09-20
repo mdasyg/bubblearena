@@ -2,6 +2,7 @@
 levels/level_manager.py - Level parsing, platform builder, spawn point setup for Bubble Arena.
 """
 import random
+import math
 from constants import TILE_SIZE, VIRTUAL_WIDTH, VIRTUAL_HEIGHT
 from entities.platform import Platform
 from levels.level_data import ALL_LEVELS
@@ -65,17 +66,58 @@ class LevelManager:
                 elif char == 'F':
                     self.flag_spawn = (x + TILE_SIZE // 2, y + TILE_SIZE // 2)
 
-    def get_random_platform_spawn(self):
-        """Returns a safe (x, y) standing location directly on top of a level platform."""
-        import random
+    def get_random_platform_spawn(self, avoid_positions=None, min_dist=40.0):
+        """Returns a safe (x, y) standing location directly on top of a level platform, optionally avoiding specific locations."""
         walkable = [
             p for p in self.platforms 
-            if (p.is_oneway or p.rect.top >= 32) and p.rect.top <= VIRTUAL_HEIGHT - 32
+            if (p.is_oneway or p.rect.top >= 32) 
+            and p.rect.top <= VIRTUAL_HEIGHT - 32
+            and p.rect.left >= 16 and p.rect.right <= VIRTUAL_WIDTH - 16
         ]
-        if walkable:
+        if not walkable:
+            return (VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT // 2)
+
+        if avoid_positions:
+            shuffled = list(walkable)
+            random.shuffle(shuffled)
+            for plat in shuffled:
+                pos = (float(plat.rect.centerx), float(plat.rect.top - 8))
+                if all(math.hypot(pos[0] - ax, pos[1] - ay) >= min_dist for ax, ay in avoid_positions):
+                    return pos
+
+        plat = random.choice(walkable)
+        return (plat.rect.centerx, plat.rect.top - 8)
+
+    def get_distinct_platform_spawns(self, count=4):
+        """Returns `count` distinct, well-spaced (x, y) standing locations on platforms for character spawns."""
+        walkable = [
+            p for p in self.platforms 
+            if (p.is_oneway or p.rect.top >= 32) 
+            and p.rect.top <= VIRTUAL_HEIGHT - 32
+            and p.rect.left >= 16 and p.rect.right <= VIRTUAL_WIDTH - 16
+        ]
+        if not walkable:
+            return [self.spawn_points.get(i, (40 + i * 100, 50)) for i in range(count)]
+
+        candidates = list(walkable)
+        random.shuffle(candidates)
+
+        spawns = []
+        for plat in candidates:
+            pos = (float(plat.rect.centerx), float(plat.rect.top - 8))
+            if all(math.hypot(pos[0] - sx, pos[1] - sy) >= 45.0 for sx, sy in spawns):
+                spawns.append(pos)
+                if len(spawns) >= count:
+                    break
+
+        # If not enough well-spaced platforms found, relax spacing or sample random platforms
+        while len(spawns) < count:
             plat = random.choice(walkable)
-            return (plat.rect.centerx, plat.rect.top - 8)
-        return (VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT // 2)
+            offset_x = random.choice([-16, 0, 16])
+            pos_x = max(24.0, min(float(VIRTUAL_WIDTH - 24), float(plat.rect.centerx + offset_x)))
+            spawns.append((pos_x, float(plat.rect.top - 8)))
+
+        return spawns[:count]
 
     def next_level(self):
         """Advances to the next level."""

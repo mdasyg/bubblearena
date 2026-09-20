@@ -55,6 +55,7 @@ class Player:
         self.shoot_cooldown = 0.0
         self.shoot_anim_timer = 0.0
         self.bubble_ride_timer = 0.0
+        self.bot_jump_cooldown = 0.0
 
         # Power-up buff timers
         self.speed_buff_timer = 0.0
@@ -201,6 +202,8 @@ class Player:
             self.shoot_anim_timer = max(0.0, self.shoot_anim_timer - dt)
         if self.bubble_ride_timer > 0:
             self.bubble_ride_timer = max(0.0, self.bubble_ride_timer - dt)
+        if self.bot_jump_cooldown > 0:
+            self.bot_jump_cooldown = max(0.0, self.bot_jump_cooldown - dt)
 
         # Handle respawn countdown if dead
         if not self.is_alive:

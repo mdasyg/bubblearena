@@ -20,18 +20,18 @@ FPS = 60
 TITLE = "BUBBLE ARENA - 4P Retro Arcade Brawler"
 
 # --- Physics Constants ---
-GRAVITY = 720.0             # pixels/sec^2
-MAX_FALL_SPEED = 400.0      # pixels/sec
-PLAYER_SPEED = 140.0        # base horizontal speed (pixels/sec)
-PLAYER_JUMP_SPEED = -280.0  # jump impulse (pixels/sec)
-BUBBLE_BOUNCE_SPEED = -310.0# jump impulse when bouncing off a bubble
-ACCELERATION = 1200.0       # ground acceleration
-FRICTION = 900.0            # ground deceleration
-AIR_ACCEL = 700.0           # air acceleration
-AIR_FRICTION = 300.0        # air drag
+GRAVITY = 640.0             # pixels/sec^2
+MAX_FALL_SPEED = 320.0      # pixels/sec
+PLAYER_SPEED = 105.0        # base horizontal speed (pixels/sec)
+PLAYER_JUMP_SPEED = -260.0  # jump impulse (pixels/sec)
+BUBBLE_BOUNCE_SPEED = -280.0# jump impulse when bouncing off a bubble
+ACCELERATION = 800.0        # ground acceleration
+FRICTION = 700.0            # ground deceleration
+AIR_ACCEL = 550.0           # air acceleration
+AIR_FRICTION = 250.0        # air drag
 
 # --- Bubble Mechanics ---
-BUBBLE_INITIAL_SPEED = 280.0   # initial horizontal burst speed
+BUBBLE_INITIAL_SPEED = 220.0   # initial horizontal burst speed
 BUBBLE_SHOT_DISTANCE = 110.0   # base horizontal travel before float
 BUBBLE_FLOAT_SPEED = -35.0     # buoyant upward drift speed
 BUBBLE_SWAY_AMPLITUDE = 18.0   # left-right sine wave sway amplitude
@@ -47,8 +47,9 @@ BUBBLE_FIRE_COOLDOWN = 0.35    # seconds between bubble shots
 RAPID_FIRE_COOLDOWN = 0.16     # rapid candy fire cooldown
 
 # --- Match & Mode Constants ---
-GLOBAL_MATCH_TIME = 180.0      # 3 minutes in seconds
-HURRY_UP_TIME = 30.0           # trigger "HURRY UP!" warning at 30s remaining
+GLOBAL_MATCH_TIME = 90.0       # 90 seconds standard round time
+MIN_ROUND_DURATION = 45.0      # guaranteed minimum round duration before early end
+HURRY_UP_TIME = 20.0           # trigger "HURRY UP!" warning at 20s remaining
 RESPAWN_DELAY = 3.5            # seconds before dead player respawns
 INVULNERABLE_DURATION = 2.0    # seconds of flash shield upon respawn / rescue
 STRUGGLE_ESCAPE_PRESSES = 16   # button presses needed to struggle out of bubble early

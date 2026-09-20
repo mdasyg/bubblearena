@@ -437,6 +437,79 @@ class TestBubbleArena(unittest.TestCase):
         self.assertEqual(player.facing, 1)
         self.assertEqual(bubbles[-1].direction, 1)
 
+    def test_distinct_platform_spawns(self):
+        """Verify level_mgr.get_distinct_platform_spawns returns distinct, spaced platform locations."""
+        self.level_mgr.load_level(0)
+        spawns = self.level_mgr.get_distinct_platform_spawns(count=4)
+        self.assertEqual(len(spawns), 4)
+        # Verify all spawns are distinct
+        self.assertEqual(len(set(spawns)), 4)
+        for x, y in spawns:
+            self.assertGreater(x, 16)
+            self.assertLess(x, 464)
+            self.assertGreater(y, 20)
+            self.assertLess(y, 300)
+
+    def test_minimum_round_duration_score_limit(self):
+        """Verify score limit does not terminate round before min_round_duration has elapsed."""
+        ffa = FFAMode(score_limit=5000)
+        p1 = Player(player_id=0, spawn_x=100, spawn_y=100)
+        p2 = Player(player_id=1, spawn_x=150, spawn_y=100)
+        tb = TrappedBubble(trapped_player=p2, captor_id=0, captor_team=0)
+
+        ffa.start_round([p1, p2])
+        self.assertEqual(ffa.round_elapsed_time, 0.0)
+        self.assertFalse(ffa.is_match_over)
+
+        # Player scores 6000 points at t = 10s (less than min_round_duration 45s)
+        ffa.round_elapsed_time = 10.0
+        ffa.on_player_popped(p1, tb, "KILL", 6000)
+        self.assertGreaterEqual(p1.score, ffa.score_limit)
+        # Must NOT end match prematurely
+        self.assertFalse(ffa.is_match_over)
+
+        # Now round time reaches min_round_duration (45s)
+        ffa.round_elapsed_time = 45.1
+        ffa.on_player_popped(p1, tb, "KILL", 100)
+        self.assertTrue(ffa.is_match_over)
+        self.assertIsNotNone(ffa.winner_info)
+
+    def test_bot_jump_cooldown_deliberation(self):
+        """Verify bot jump cooldown prevents spam jumping and decrements over time."""
+        from engine.bot_ai import BotAI
+        bot = Player(player_id=1, spawn_x=100, spawn_y=200, is_bot=True)
+        bot.is_grounded = True
+        bot.bot_jump_cooldown = 0.0
+
+        # Bot steers towards a higher platform (dy = -40)
+        actions = {"left": False, "right": False, "jump": False, "shoot": False, "struggle": True}
+        BotAI._steer_towards(bot, target_x=100, target_y=160, actions=actions, personality="Standard")
+        self.assertTrue(actions["jump"])
+        self.assertGreater(bot.bot_jump_cooldown, 0.0)
+
+        # Immediate next frame: bot should NOT be able to jump while cooldown active
+        actions2 = {"left": False, "right": False, "jump": False, "shoot": False, "struggle": True}
+        BotAI._steer_towards(bot, target_x=100, target_y=160, actions=actions2, personality="Standard")
+        self.assertFalse(actions2["jump"])
+
+        # Update player by dt to simulate cooldown decay
+        bot.update(0.6, [], [], [])
+        self.assertEqual(bot.bot_jump_cooldown, 0.0)
+
+    def test_retro_arcade_physics_constants(self):
+        """Verify physics constants conform to calibrated retro arcade platformer pacing."""
+        from constants import (
+            PLAYER_SPEED, ACCELERATION, GRAVITY, PLAYER_JUMP_SPEED,
+            BUBBLE_INITIAL_SPEED, MIN_ROUND_DURATION, GLOBAL_MATCH_TIME
+        )
+        self.assertEqual(PLAYER_SPEED, 105.0)
+        self.assertEqual(ACCELERATION, 800.0)
+        self.assertEqual(GRAVITY, 640.0)
+        self.assertEqual(PLAYER_JUMP_SPEED, -260.0)
+        self.assertEqual(BUBBLE_INITIAL_SPEED, 220.0)
+        self.assertEqual(MIN_ROUND_DURATION, 45.0)
+        self.assertEqual(GLOBAL_MATCH_TIME, 90.0)
+
 if __name__ == "__main__":
     unittest.main()
 

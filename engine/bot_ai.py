@@ -209,8 +209,9 @@ class BotAI:
         for b in bubbles:
             if b.is_alive and b.is_floating:
                 if abs(b.x - bot.x) < 18 and bot.y > b.rect.bottom and bot.y - b.rect.bottom < 40:
-                    if bot.is_grounded:
+                    if bot.is_grounded and getattr(bot, "bot_jump_cooldown", 0.0) <= 0.0:
                         actions["jump"] = True
+                        bot.bot_jump_cooldown = 0.5
 
         return actions
 
@@ -280,21 +281,26 @@ class BotAI:
 
     @staticmethod
     def _steer_towards(bot, target_x, target_y, actions, personality):
-        """Steering and jump mechanics with personality adjustments."""
+        """Steering and jump mechanics with personality adjustments and deliberate pacing."""
         dx = target_x - bot.x
         dy = target_y - bot.y
 
-        deadzone = 8 if personality == BOT_PERSONALITY_AGGRESSIVE else 14
+        deadzone = 12 if personality == BOT_PERSONALITY_AGGRESSIVE else 18
         if dx < -deadzone:
             actions["left"] = True
         elif dx > deadzone:
             actions["right"] = True
 
-        # Vertical navigation: jump if target is on higher level
-        if dy < -18 and bot.is_grounded:
-            actions["jump"] = True
+        cooldown = getattr(bot, "bot_jump_cooldown", 0.0)
 
-        # Random agility jump to prevent wall corners
-        jump_rate = 0.10 if personality == BOT_PERSONALITY_AGGRESSIVE else (0.05 if personality == BOT_PERSONALITY_PASSIVE else 0.07)
-        if bot.is_grounded and random.random() < jump_rate:
+        # Vertical navigation: jump if target is on higher level
+        if dy < -18 and bot.is_grounded and cooldown <= 0.0:
             actions["jump"] = True
+            bot.bot_jump_cooldown = 0.5
+
+        # Subtle exploration / wall-clearing agility hop (paced out by cooldown)
+        if bot.is_grounded and cooldown <= 0.0:
+            jump_rate = 0.015 if personality == BOT_PERSONALITY_AGGRESSIVE else (0.005 if personality == BOT_PERSONALITY_PASSIVE else 0.010)
+            if random.random() < jump_rate:
+                actions["jump"] = True
+                bot.bot_jump_cooldown = random.uniform(0.8, 1.4)

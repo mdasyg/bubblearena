@@ -149,9 +149,10 @@ class GameEngine:
         self.powerups.clear()
         self.item_spawn_timer = random.uniform(6.0, 12.0)
 
-        # Reposition players to level spawn points
+        # Reposition players to randomized distinct platform spawn points
+        random_spawns = self.level_mgr.get_distinct_platform_spawns(len(self.players))
         for i, p in enumerate(self.players):
-            sp = self.level_mgr.spawn_points.get(i, (40 + i * 100, 50))
+            sp = random_spawns[i] if i < len(random_spawns) else self.level_mgr.spawn_points.get(i, (40 + i * 100, 50))
             p.reset_for_round(sp[0], sp[1])
 
         # Flag setup for CTF
@@ -175,9 +176,10 @@ class GameEngine:
         self.powerups.clear()
         self.item_spawn_timer = random.uniform(6.0, 12.0)
 
-        # Reposition players to level spawn points (keeping scores and stats intact)
+        # Reposition players to randomized distinct platform spawn points (keeping scores and stats intact)
+        random_spawns = self.level_mgr.get_distinct_platform_spawns(len(self.players))
         for i, p in enumerate(self.players):
-            sp = self.level_mgr.spawn_points.get(i, (40 + i * 100, 50))
+            sp = random_spawns[i] if i < len(random_spawns) else self.level_mgr.spawn_points.get(i, (40 + i * 100, 50))
             p.reset_for_round(sp[0], sp[1])
 
         # Flag setup for CTF

@@ -6,7 +6,7 @@ from constants import MODE_FFA
 
 class FFAMode(BaseGameMode):
     """4 individual players, every other player is an opponent."""
-    def __init__(self, score_limit=10000):
+    def __init__(self, score_limit=20000):
         super().__init__(MODE_FFA)
         self.score_limit = score_limit
 
@@ -14,8 +14,8 @@ class FFAMode(BaseGameMode):
         if result_type == "KILL":
             popping_player.kills += 1
             popping_player.score += points
-            # Check score limit early win
-            if popping_player.score >= self.score_limit:
+            # Check score limit early win (only if guaranteed minimum round duration has elapsed)
+            if popping_player.score >= self.score_limit and self.round_elapsed_time >= self.min_round_duration:
                 self.is_match_over = True
                 self.winner_info = {
                     "text": f"{popping_player.name} WINS!",

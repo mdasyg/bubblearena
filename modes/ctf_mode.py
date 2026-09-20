@@ -6,7 +6,7 @@ from constants import MODE_CTF
 
 class CTFMode(BaseGameMode):
     """Capture The Flag mode: Fight for control of the golden flag."""
-    def __init__(self, score_limit=12000):
+    def __init__(self, score_limit=20000):
         super().__init__(MODE_CTF)
         self.score_limit = score_limit
 
@@ -23,14 +23,15 @@ class CTFMode(BaseGameMode):
         if self.is_match_over:
             return
 
-        # Check if any player hit the CTF score limit
-        for p in players:
-            if p.score >= self.score_limit:
-                self.is_match_over = True
-                self.evaluate_winner(players)
-                if sound_mgr:
-                    sound_mgr.play_sfx("victory")
-                break
+        # Check if any player hit the CTF score limit (only after guaranteed minimum round duration)
+        if self.round_elapsed_time >= self.min_round_duration:
+            for p in players:
+                if p.score >= self.score_limit:
+                    self.is_match_over = True
+                    self.evaluate_winner(players)
+                    if sound_mgr:
+                        sound_mgr.play_sfx("victory")
+                    break
 
     def evaluate_winner(self, players):
         if not players:

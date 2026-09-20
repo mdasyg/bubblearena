@@ -107,7 +107,7 @@ python git_tool.py push
 - `assets/`: Spritesheets, sliced frames, audio resources.
 - `Animation/`: Raw source dragon spritesheets.
 - `tools/`: Build scripts (`build_player_animations.py`).
-- `tests/`: 9 test files, 60 automated unit tests.
+- `tests/`: 9 test files, 64 automated unit tests.
 - `Releases/`: Distributable standalone Windows executable (`BubbleArena.exe`).
 
 ## Development Rules
@@ -116,21 +116,22 @@ python git_tool.py push
 - **Client Executable Distribution**: Every feature or client code modification MUST recompile `dist/BubbleArena.exe` with PyInstaller and copy to `./Releases/BubbleArena.exe`, then commit and push it.
 - **Minimal Dedicated Server Footprint**: The dedicated server (`bubblearena_server.py`) MUST remain 100% headless with zero dependencies on Pygame, SDL, or graphic assets. Only 4 files required: `bubblearena_server.py`, `constants.py`, `network/protocol.py`, `network/server_core.py` (and an empty `network/__init__.py`). Total footprint must remain under 50 KB.
 - **Resolution & Scaling**: Virtual canvas is fixed at `480 x 320`. Never change native physics coordinates or draw directly in window coordinates.
-- **Testing Integrity**: Every new feature or bugfix MUST include unit tests in `tests/`. All 60 existing tests must remain passing. Run `python -m unittest discover tests`.
+- **Testing Integrity**: Every new feature or bugfix MUST include unit tests in `tests/`. All 64 existing tests must remain passing. Run `python -m unittest discover tests`.
 - **Sprite Orientation Standard**: All base dragon sprite frames (`idle`, `walk`, `jump`, `fall`, `shoot`) stored on disk MUST face RIGHT by default. Runtime flip logic (`if facing < 0: pygame.transform.flip(...)`) expects right-facing base frames.
 - **Silent Mode Compatibility**: Never assume an audio endpoint exists. `SoundManager` must never crash when WASAPI/SDL audio is unavailable.
 - **Code Reuse**: Never duplicate server logic between `bubblearena_server.py` and `lan_server.py`; both must inherit from `network.server_core.BaseBubbleServer`.
 
 ## Current State
 
+- **Authentic Retro Arcade Pacing:** Calibrated player speed (`105.0px/s`), smoothed ground acceleration (`800.0px/s²`), softened gravity (`640.0px/s²`), floaty jump impulse (`-260.0px/s`), and bubble burst speed (`220.0px/s`) for genuine classic *Bubble Bobble* platformer feel.
+- **CPU Bot Deliberation & Jump Cooldown:** Bot jump cooldown timer (`0.5s - 1.4s`) and widened horizontal steering deadzones eliminate frantic spasms and twitch jumping.
+- **Guaranteed Minimum Stage Duration:** Rounds are protected with `MIN_ROUND_DURATION = 45.0s`, preventing abrupt level cuts upon player elimination or early score milestones in multi-round matches.
+- **Dynamic Platform Respawns:** `LevelManager.get_distinct_platform_spawns()` randomly spreads characters across arena platforms at match/round start and upon player death respawns instead of predictable static slot coordinates.
 - **14 Arena Stages Grid:** All 14 stages cleanly selectable in a 2-column x 7-row interactive grid with arrow navigation.
-- **Dragon Shooting Facing Direction:** Normalized all shoot sprite PNGs to face right, eliminating backward flips when firing bubbles left.
 - **Game Settings Menu:** Configurable game speed (`Slower 0.8x`, `Normal 1.0x`, `Faster 1.25x`) and configurable match rounds (1-10, default 4).
 - **Multi-Round Flow & Scoring:** Cumulative player scores, kills, deaths, and rescues persist across rounds. Top HUD shows `RND X/Y`. Mid-match transition banners announce upcoming rounds.
-- **Scoreboard Table Alignment:** End-of-match victory screen renders table with fixed horizontal pixel coordinates for `PLAYER`, `SCORE`, `KILLS`, `DEATHS`, and `RESCUES`.
 - **Headless Dedicated Server:** Standalone console server with interactive CLI shell (`status`, `players`, `kick`, `ban`, `mode`, `level`, `bot`, `say`, etc.) and live ping RTT latency calculation.
-- **Minimal Server Deployment Guide:** Fully documented in `README.md` for remote Linux/FreeBSD VPS hosts.
-- **Automated Tests:** 60/60 automated unit tests passing across 9 test suites.
+- **Automated Tests:** 64/64 automated unit tests passing across 9 test suites.
 - **Release Executable:** Pre-compiled standalone Windows binary updated in `./Releases/BubbleArena.exe`.
 
 ## Active Priorities
@@ -142,10 +143,10 @@ python git_tool.py push
 
 ## Recent Architectural Decisions
 
-1. **Unified Server Core (`network/server_core.py`)**: Extracted `BaseBubbleServer` so both local listen-hosts and remote dedicated servers share identical packet parsing, slot assignment, client tracking, and ping calculation logic without code duplication.
-2. **Right-Facing Sprite Normalization**: Standardized all sprite sheet cutouts to face right on disk. This guarantees `player.facing = -1` reliably triggers horizontal flipping without exceptions.
-3. **Multi-Round Score Retention**: Updated `BaseGameMode.start_round(reset_scores=False)` so multi-round matches maintain player scores and tournament statistics across maps.
-4. **Headless Dedicated Server Isolation**: Deliberately avoided Pygame/SDL dependencies in `bubblearena_server.py`, ensuring effortless ~50KB deployments on remote Linux VPS or FreeBSD hosts.
+1. **Retro Arcade Platformer Calibration**: Tuned physics to match authentic arcade gameplay tempo rather than twitchy hyper-speed; reduced jump frequency of bots through cooldown throttles and deadzones.
+2. **Minimum Round Duration Guarantee (`MIN_ROUND_DURATION = 45.0s`)**: Guarded score limit triggers in `FFAMode` and `CTFMode` behind `round_elapsed_time >= min_round_duration` to prevent jarring premature stage switches right after player deaths.
+3. **Dynamic Platform Spawn Allocation (`get_distinct_platform_spawns`)**: Filtered out exterior arena border walls from candidate platforms and ensured random, well-spaced placement across multiple platform tiers.
+4. **Unified Server Core (`network/server_core.py`)**: Extracted `BaseBubbleServer` so both local listen-hosts and remote dedicated servers share identical packet parsing, slot assignment, client tracking, and ping calculation logic without code duplication.
 
 ## Important Files
 
@@ -173,7 +174,7 @@ python git_tool.py push
 
 - **Where to continue**: Read `AGENTS.md` first. Next focus is network gameplay state interpolation for remote clients and exploring Survival wave mode.
 - **First file to open**: `engine/game.py` for gameplay state or `network/server_core.py` for network synchronization.
-- **Immediate verification step**: Run `python -m unittest discover tests` to ensure all 60 tests pass before making any changes.
+- **Immediate verification step**: Run `python -m unittest discover tests` to ensure all 64 tests pass before making any changes.
 - **What NOT to change without reason**:
   - Do not introduce Pygame imports into `bubblearena_server.py` or `network/server_core.py`.
   - Do not alter the `480 x 320` virtual canvas resolution.

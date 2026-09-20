@@ -1,13 +1,15 @@
 """
 modes/base_mode.py - Base GameMode interface and shared match rule logic.
 """
-from constants import GLOBAL_MATCH_TIME, HURRY_UP_TIME
+from constants import GLOBAL_MATCH_TIME, HURRY_UP_TIME, MIN_ROUND_DURATION
 
 class BaseGameMode:
     """Base class for all arcade match modes."""
     def __init__(self, name):
         self.name = name
-        self.match_time_remaining = GLOBAL_MATCH_TIME  # 3 minutes (180s)
+        self.match_time_remaining = GLOBAL_MATCH_TIME
+        self.round_elapsed_time = 0.0
+        self.min_round_duration = MIN_ROUND_DURATION
         self.is_hurry_up = False
         self.is_match_over = False
         self.winner_info = None
@@ -15,6 +17,7 @@ class BaseGameMode:
     def start_round(self, players, reset_scores=True):
         """Initializes match/round state for all players."""
         self.match_time_remaining = GLOBAL_MATCH_TIME
+        self.round_elapsed_time = 0.0
         self.is_hurry_up = False
         self.is_match_over = False
         self.winner_info = None
@@ -31,6 +34,7 @@ class BaseGameMode:
         if self.is_match_over:
             return
 
+        self.round_elapsed_time += dt
         self.match_time_remaining -= dt
         if self.match_time_remaining <= HURRY_UP_TIME and not self.is_hurry_up:
             self.is_hurry_up = True
