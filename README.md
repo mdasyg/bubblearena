@@ -2,6 +2,11 @@
 
 > **A fast-paced 4-player retro 2D single-screen arcade platform brawler inspired by *Bubble Bobble*, featuring competitive local & LAN multiplayer, chain-reaction bubble explosions, 14 arena stages, ready-checked lobbies, and in-game broadcast chat.**
 
+<p align="center">
+  <img src="docs/images/title_screen.png" alt="Bubble Arena Title Screen" width="48%" />
+  <img src="docs/images/gameplay_ffa_battle.png" alt="Bubble Arena 4-Player Battle" width="48%" />
+</p>
+
 ---
 
 ## 📖 Table of Contents
@@ -106,6 +111,11 @@ Configurable directly from the title screen under **GAME SETTINGS**:
   - `DEATHS`: Times eliminated
   - `RESCUES`: Friendly bubble pops (2v2 Team Brawler)
 
+<p align="center">
+  <img src="docs/images/game_settings.png" alt="Game Settings Menu" width="48%" />
+  <img src="docs/images/victory_scoreboard.png" alt="Justified Match Results Scoreboard" width="48%" />
+</p>
+
 ---
 
 ## 🏆 Game Modes
@@ -119,11 +129,19 @@ Configurable directly from the title screen under **GAME SETTINGS**:
 4. **Single-Player / Practice vs. AI Bots:**
    - Play locally against heuristic bots equipped with autonomous pathfinding, bubble-shooting, and bubble-riding logic.
 
+<p align="center">
+  <img src="docs/images/gameplay_ctf_match.png" alt="Capture The Flag Arena Match" width="80%" />
+</p>
+
 ---
 
 ## 🗺️ Arenas & Stage Themes
 
 Bubble Arena features **14 handcrafted single-screen maps**, each featuring distinct platform configurations and visual themes. In the **SELECT LEVEL** menu, all 14 stages are displayed in an interactive 2-column $\times$ 7-row grid with clean arrow-key navigation (Left/Right jumps between columns, Up/Down steps through stages):
+
+<p align="center">
+  <img src="docs/images/level_select_grid.png" alt="14-Stage Level Select Grid" width="80%" />
+</p>
 
 1. **Emerald Meadow:** Classic multi-tiered grassland with central climbing gaps.
 2. **Azure Castle:** Fortified stone battlements with tall side watchtowers.
@@ -194,6 +212,10 @@ Items spawn randomly during matches or drop from popped bubble chain explosions:
 - Each human player toggles **`[READY]`** with `[R]` or `[SPACE]`.
 - Host can fill open slots with AI Bots using `[B]`.
 - **Match Auto-Start:** When all 4 slots are occupied and marked **`READY`**, the match starts synchronously for all players.
+
+<p align="center">
+  <img src="docs/images/lan_lobby.png" alt="Dedicated 4-Player LAN Room Lobby and Chat" width="80%" />
+</p>
 
 ### 3. Generic Broadcast Chat
 - Built-in real-time lobby chat.
@@ -401,7 +423,7 @@ BubbleArena/
 ├── ui/
 │   ├── hud.py               # HUD: Scores, timer, level name, hurry-up banners
 │   └── menu.py              # MenuSystem: Title, mode select, level select, lobbies
-└── tests/                   # Automated unittest suite (56 tests)
+└── tests/                   # Automated unittest suite (64 tests)
 ```
 
 ---
@@ -438,7 +460,7 @@ The official release executable is located in:
 
 ## 🧪 Automated Test Suite
 
-Bubble Arena includes a comprehensive suite of 56 automated unit and integration tests:
+Bubble Arena includes a comprehensive suite of 64 automated unit and integration tests:
 
 ```bash
 python -m unittest discover tests
