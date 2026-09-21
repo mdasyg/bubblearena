@@ -55,7 +55,7 @@ def parse_cli_arguments(args=None):
         "-l", "--level",
         type=int,
         default=1,
-        help="Initial map level (1-14)"
+        help="Initial map level (1-28)"
     )
     parser.add_argument(
         "--no-beacon",
@@ -90,7 +90,7 @@ AVAILABLE ADMINISTRATIVE COMMANDS:
   unban <ip>                Remove an IP from the blacklist
   bans                      List all currently blacklisted IP addresses
   mode <ffa|team|ctf>       Change the active game mode and notify all clients
-  level <1..14>             Change the active arena level and notify all clients
+  level <1..28>             Change the active arena level and notify all clients
   bot add [slot] [pers]     Add bot (Aggressive, Passive, Standard) to slot (1..4)
   bot kick <slot>           Remove bot from slot (1..4)
   bots fill                 Fill all open slots with CPU bots
@@ -193,7 +193,7 @@ AVAILABLE ADMINISTRATIVE COMMANDS:
 
         elif cmd in ("level", "map", "stage"):
             if not args:
-                print(f"Current level: Stage {self.server.level_idx}. Usage: level <1-14>")
+                print(f"Current level: Stage {self.server.level_idx}. Usage: level <1-28>")
                 return True
             success, msg = self.server.set_level(args[0])
             print(f"[Admin] {msg}")

@@ -297,15 +297,15 @@ class TestBubbleArena(unittest.TestCase):
         self.assertEqual(spawned[0].radius, GIANT_BUBBLE_RADIUS)
         self.assertEqual(spawned[0].radius, 24)
 
-    def test_all_14_levels_and_random_selection(self):
-        """Verify 14 levels exist and load_random_level picks valid random maps."""
-        self.assertGreaterEqual(self.level_mgr.get_level_count(), 14)
+    def test_all_28_levels_and_random_selection(self):
+        """Verify 28 levels exist and load_random_level picks valid random maps."""
+        self.assertEqual(self.level_mgr.get_level_count(), 28)
         picked = set()
-        for _ in range(25):
+        for _ in range(35):
             idx = self.level_mgr.load_random_level()
             picked.add(idx)
             self.assertGreaterEqual(idx, 0)
-            self.assertLess(idx, 14)
+            self.assertLess(idx, 28)
             self.assertGreater(len(self.level_mgr.platforms), 10)
         # Must pick multiple distinct maps
         self.assertGreater(len(picked), 1)
@@ -345,26 +345,30 @@ class TestBubbleArena(unittest.TestCase):
         with self.assertRaises(SystemExit):
             engine.run()
 
-    def test_level_select_14_levels_grid_navigation(self):
-        """Verify 2-column x 7-row navigation between all 14 arena levels."""
+    def test_level_select_grid_and_page_navigation(self):
+        """Verify 2-column x 7-row navigation per page across all 28 arena levels."""
         from engine.game import GameEngine
         engine = GameEngine(is_bot_match=False)
-        self.assertEqual(engine.level_mgr.get_level_count(), 14)
-        rows_per_col = (engine.level_mgr.get_level_count() + 1) // 2
+        self.assertEqual(engine.level_mgr.get_level_count(), 28)
+        per_page = 14
+        rows_per_col = 7
         self.assertEqual(rows_per_col, 7)
 
-        # Start at index 0 (Col 0, Row 0) -> Move Right jumps by 7 to index 7 (Col 1, Row 0)
+        # Start at index 0 (Page 1, Col 0, Row 0) -> Move Right jumps by 7 to index 7 (Page 1, Col 1, Row 0)
         idx = 0
-        idx_right = min(engine.level_mgr.get_level_count() - 1, idx + rows_per_col)
+        idx_right = idx + rows_per_col
         self.assertEqual(idx_right, 7)
 
-        # From index 7 (Col 1, Row 0) -> Move Left jumps by -7 to index 0 (Col 0, Row 0)
-        idx_left = max(0, idx_right - rows_per_col)
+        # From index 7 (Page 1, Col 1, Row 0) -> Move Left jumps by -7 to index 0 (Page 1, Col 0, Row 0)
+        idx_left = idx_right - rows_per_col
         self.assertEqual(idx_left, 0)
 
-        # From index 13 (Col 1, Row 6) -> Move Left jumps to index 6 (Col 0, Row 6)
-        idx_last = 13
-        self.assertEqual(max(0, idx_last - rows_per_col), 6)
+        # From index 13 (Page 1, Col 1, Row 6) -> Move Left jumps to index 6 (Page 1, Col 0, Row 6)
+        idx_last_p1 = 13
+        self.assertEqual(idx_last_p1 - rows_per_col, 6)
+
+        # Flipping page (PGDN / TAB) from index 0 advances by 14 to index 14 (Page 2, Col 0, Row 0)
+        self.assertEqual((0 + per_page) % 28, 14)
 
     def test_game_settings_speed_and_rounds_defaults(self):
         """Verify default speed (1.0x Normal) and default rounds (4) in GameEngine."""

@@ -398,20 +398,68 @@ class GameEngine:
                     self.state = STATE_MENU
 
             elif self.state == STATE_LEVEL_SELECT:
+                count = self.level_mgr.get_level_count()
+                per_page = 14
+                rows_per_col = 7
+                total_pages = max(1, (count + per_page - 1) // per_page)
                 if event.type == pygame.KEYDOWN:
                     if event.key in (pygame.K_UP, pygame.K_w):
-                        self.menu.selected_idx = (self.menu.selected_idx - 1) % self.level_mgr.get_level_count()
+                        cur_col = (self.menu.selected_idx % per_page) // rows_per_col
+                        cur_row = (self.menu.selected_idx % per_page) % rows_per_col
+                        new_row = (cur_row - 1) % rows_per_col
+                        page_start = (self.menu.selected_idx // per_page) * per_page
+                        candidate = page_start + cur_col * rows_per_col + new_row
+                        if candidate < count:
+                            self.menu.selected_idx = candidate
                         self.sound_mgr.play_sfx("select")
                     elif event.key in (pygame.K_DOWN, pygame.K_s):
-                        self.menu.selected_idx = (self.menu.selected_idx + 1) % self.level_mgr.get_level_count()
+                        cur_col = (self.menu.selected_idx % per_page) // rows_per_col
+                        cur_row = (self.menu.selected_idx % per_page) % rows_per_col
+                        new_row = (cur_row + 1) % rows_per_col
+                        page_start = (self.menu.selected_idx // per_page) * per_page
+                        candidate = page_start + cur_col * rows_per_col + new_row
+                        if candidate < count:
+                            self.menu.selected_idx = candidate
                         self.sound_mgr.play_sfx("select")
                     elif event.key in (pygame.K_LEFT, pygame.K_a):
-                        rows_per_col = (self.level_mgr.get_level_count() + 1) // 2
-                        self.menu.selected_idx = max(0, self.menu.selected_idx - rows_per_col)
+                        cur_col = (self.menu.selected_idx % per_page) // rows_per_col
+                        if cur_col == 1:
+                            self.menu.selected_idx -= rows_per_col
+                        else:
+                            # Flip to previous page, column 1
+                            cur_page = self.menu.selected_idx // per_page
+                            prev_page = (cur_page - 1) % total_pages
+                            row_offset = (self.menu.selected_idx % per_page) % rows_per_col
+                            candidate = prev_page * per_page + rows_per_col + row_offset
+                            if candidate >= count:
+                                candidate = prev_page * per_page + row_offset
+                            self.menu.selected_idx = min(count - 1, candidate)
                         self.sound_mgr.play_sfx("select")
                     elif event.key in (pygame.K_RIGHT, pygame.K_d):
-                        rows_per_col = (self.level_mgr.get_level_count() + 1) // 2
-                        self.menu.selected_idx = min(self.level_mgr.get_level_count() - 1, self.menu.selected_idx + rows_per_col)
+                        cur_col = (self.menu.selected_idx % per_page) // rows_per_col
+                        if cur_col == 0 and (self.menu.selected_idx + rows_per_col) < count:
+                            self.menu.selected_idx += rows_per_col
+                        else:
+                            # Flip to next page, column 0
+                            cur_page = self.menu.selected_idx // per_page
+                            next_page = (cur_page + 1) % total_pages
+                            row_offset = (self.menu.selected_idx % per_page) % rows_per_col
+                            candidate = next_page * per_page + row_offset
+                            self.menu.selected_idx = min(count - 1, candidate)
+                        self.sound_mgr.play_sfx("select")
+                    elif event.key in (pygame.K_PAGEUP, pygame.K_TAB):
+                        cur_page = self.menu.selected_idx // per_page
+                        new_page = (cur_page - 1) % total_pages
+                        local_idx = self.menu.selected_idx % per_page
+                        candidate = new_page * per_page + local_idx
+                        self.menu.selected_idx = min(count - 1, candidate)
+                        self.sound_mgr.play_sfx("select")
+                    elif event.key == pygame.K_PAGEDOWN:
+                        cur_page = self.menu.selected_idx // per_page
+                        new_page = (cur_page + 1) % total_pages
+                        local_idx = self.menu.selected_idx % per_page
+                        candidate = new_page * per_page + local_idx
+                        self.menu.selected_idx = min(count - 1, candidate)
                         self.sound_mgr.play_sfx("select")
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_f):
                         self.level_mgr.load_level(self.menu.selected_idx)

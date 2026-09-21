@@ -66,14 +66,34 @@ class LevelManager:
                 elif char == 'F':
                     self.flag_spawn = (x + TILE_SIZE // 2, y + TILE_SIZE // 2)
 
-    def get_random_platform_spawn(self, avoid_positions=None, min_dist=40.0):
-        """Returns a safe (x, y) standing location directly on top of a level platform, optionally avoiding specific locations."""
-        walkable = [
+    def _get_walkable_platforms(self):
+        """Returns platforms that have at least 24px of clear vertical headroom above them."""
+        walkable = []
+        for p in self.platforms:
+            if not (p.is_oneway or p.rect.top >= 32):
+                continue
+            if not (32 <= p.rect.top <= VIRTUAL_HEIGHT - 32):
+                continue
+            if not (16 <= p.rect.left and p.rect.right <= VIRTUAL_WIDTH - 16):
+                continue
+            # Headroom check: no solid boundary/block directly overhead
+            has_overhead_solid = any(
+                not other.is_oneway and other.rect.collidepoint(p.rect.centerx, p.rect.top - check_y)
+                for other in self.platforms
+                for check_y in (8, 16, 24)
+            )
+            if not has_overhead_solid:
+                walkable.append(p)
+        return walkable if walkable else [
             p for p in self.platforms 
             if (p.is_oneway or p.rect.top >= 32) 
             and p.rect.top <= VIRTUAL_HEIGHT - 32
             and p.rect.left >= 16 and p.rect.right <= VIRTUAL_WIDTH - 16
         ]
+
+    def get_random_platform_spawn(self, avoid_positions=None, min_dist=40.0):
+        """Returns a safe (x, y) standing location directly on top of a level platform, optionally avoiding specific locations."""
+        walkable = self._get_walkable_platforms()
         if not walkable:
             return (VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT // 2)
 
@@ -90,12 +110,7 @@ class LevelManager:
 
     def get_distinct_platform_spawns(self, count=4):
         """Returns `count` distinct, well-spaced (x, y) standing locations on platforms for character spawns."""
-        walkable = [
-            p for p in self.platforms 
-            if (p.is_oneway or p.rect.top >= 32) 
-            and p.rect.top <= VIRTUAL_HEIGHT - 32
-            and p.rect.left >= 16 and p.rect.right <= VIRTUAL_WIDTH - 16
-        ]
+        walkable = self._get_walkable_platforms()
         if not walkable:
             return [self.spawn_points.get(i, (40 + i * 100, 50)) for i in range(count)]
 

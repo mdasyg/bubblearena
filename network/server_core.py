@@ -467,12 +467,12 @@ class BaseBubbleServer:
             return self.game_mode_name
 
     def set_level(self, level_idx):
-        """Sets stage level (1..14) and broadcasts to all clients."""
+        """Sets stage level (1..28) and broadcasts to all clients."""
         with self.lock:
             try:
                 idx = int(level_idx)
-                if not (1 <= idx <= 14):
-                    return False, "Level must be between 1 and 14."
+                if not (1 <= idx <= 28):
+                    return False, "Level must be between 1 and 28."
                 self.level_idx = idx
                 self._broadcast_lobby_state_locked()
                 return True, f"Level set to Stage {self.level_idx}."

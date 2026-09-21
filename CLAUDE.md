@@ -105,16 +105,22 @@ python git_tool.py push
   - `particles.py`: Particle effects, pop bursts, dust, floating combat text.
 - `entities/`: `player.py`, `bubble.py`, `trapped_bubble.py`, `powerup.py`, `flag.py`.
 - `levels/`:
-  - `level_data.py`: ASCII tilemaps for all 14 stages.
-  - `level_manager.py`: Level loader, platform collision builder, spawn point parser.
+  - `level_data.py`: ASCII tilemaps for all 28 stages (14 core arenas + 14 classic arcade rounds).
+  - `level_manager.py`: Level loader, platform collision builder, safe spawn point parser with vertical headroom checking.
 - `modes/`: `base_mode.py`, `ffa_mode.py`, `team_mode.py`, `ctf_mode.py`.
 - `network/`: `protocol.py`, `server_core.py`, `lan_server.py`, `lan_client.py`.
 - `ui/`: `menu.py` (MenuSystem), `hud.py` (HUD).
-- `assets/`: Spritesheets, sliced frames, audio resources.
+- `assets/`: Spritesheets, sliced frames, audio resources, authentic arcade tile sheets (`bubble-bobble-tiles.png`, `bubble-bobble-maps.png`).
 - `Animation/`: Raw source dragon spritesheets.
-- `tools/`: Build scripts (`build_player_animations.py`).
-- `tests/`: 11 test files, 78 automated unit tests (`test_bubble_mechanics.py`).
+- `tools/`: Build scripts (`build_player_animations.py`, `build_classic_levels.py`).
+- `tests/`: 12 test files, 85 automated unit tests (`test_classic_levels.py`, `test_bubble_mechanics.py`).
 - `Releases/`: Distributable standalone Windows executable (`BubbleArena.exe`).
+
+## External Resources & Asset Origins
+
+- **Original Arcade Sprites & Map Reference:** Public GitHub repository [Mqtth3w/BubbleBobbleGame-unipr](https://github.com/Mqtth3w/BubbleBobbleGame-unipr/tree/main).
+  - Contains authentic 1986 arcade spritesheets, tile sheets (`assets/bubble-bobble-tiles.png`), and complete 100-map atlas (`assets/bubble-bobble-maps.png`).
+  - Referenced for classic stage geometry, enemy sprite sheets, and retro color palettes.
 
 ## Development Rules
 
@@ -122,7 +128,7 @@ python git_tool.py push
 - **Client Executable Distribution**: Binaries (`Releases/`, `dist/`, `*.exe`) MUST NEVER be committed to Git. The `Releases/` folder is gitignored. Standalone binaries are published exclusively via GitHub Releases using `release-push.sh` or `release-push.ps1`.
 - **Minimal Dedicated Server Footprint**: The dedicated server (`bubblearena_server.py`) MUST remain 100% headless with zero dependencies on Pygame, SDL, or graphic assets. Only 4 files required: `bubblearena_server.py`, `constants.py`, `network/protocol.py`, `network/server_core.py` (and an empty `network/__init__.py`). Total footprint must remain under 50 KB.
 - **Resolution & Scaling**: Virtual canvas is fixed at `480 x 320`. Never change native physics coordinates or draw directly in window coordinates.
-- **Testing Integrity**: Every new feature or bugfix MUST include unit tests in `tests/`. All 78 existing tests must remain passing. Run `python -m unittest discover tests`.
+- **Testing Integrity**: Every new feature or bugfix MUST include unit tests in `tests/`. All 85 unit tests must remain passing. Run `python -m unittest discover tests`.
 - **Sprite Orientation Standard**: All base dragon sprite frames (`idle`, `walk`, `jump`, `fall`, `shoot`) stored on disk MUST face RIGHT by default. Runtime flip logic (`if facing < 0: pygame.transform.flip(...)`) expects right-facing base frames.
 - **Silent Mode Compatibility**: Never assume an audio endpoint exists. `SoundManager` must never crash when WASAPI/SDL audio is unavailable.
 - **Code Reuse**: Never duplicate server logic between `bubblearena_server.py` and `lan_server.py`; both must inherit from `network.server_core.BaseBubbleServer`.
@@ -132,14 +138,16 @@ python git_tool.py push
 - **Authentic Retro Arcade Pacing:** Calibrated player speed (`105.0px/s`), smoothed ground acceleration (`800.0px/s²`), softened gravity (`640.0px/s²`), floaty jump impulse (`-260.0px/s`), and bubble burst speed (`220.0px/s`) for genuine classic *Bubble Bobble* platformer feel.
 - **Bubble Trampoline & Vertical Column Climbing:** Players can land on and bounce off any floating bubble (own or other players') continuously without breaking them. Holding or buffering Jump delivers a boosted super-bounce (`BUBBLE_BOUNCE_SPEED * 1.15`). Players pass smoothly through bubbles from below, enabling vertical bubble stream climbing to arena ceilings. Empty bubbles never pop on player contact.
 - **Trapped Player Retention (Anti Self-Break):** Trapped players (CPU bots and humans) cannot break their own bubble through button mashing or struggle counters. Only another player can pop the bubble (opponents eliminate for +1000 pts and bounce upward; teammates rescue for +500 pts with invulnerability shield).
+- **28 Arena Stages with Clean 2-Page Pagination:** 28 distinct playable arena levels. Interactive level select browser displays 14 levels per page in a balanced 2-column x 7-row layout (`< PAGE 1/2 >` and `< PAGE 2/2 >`) with seamless arrow navigation (`LEFT/RIGHT` flips pages on column boundaries, `PGUP/PGDN/TAB` switches pages).
+- **14 Classic Arcade Stages (`LEVEL_15` to `LEVEL_28`):** Authentic recreations of classic Bubble Bobble rounds (Triple Ledges, Pyramidal Steps, Twin Vaults, Fortress Keep, Zig-Zag Meander, Alternate Shelves, Broad Colonnade, Dual Alcove Arena, Floating Stepping Stones, Dragon Gate, Space Invader, Twin Eyes Sanctuary, Heart Spire Citadel, Spiral Ascent).
+- **Strict Anti-Trapping & Safe Spawning Architecture:** Every map layout guarantees that player spawns (`1`, `2`, `3`, `4`) and flag spawns (`F`) have clear vertical headroom (empty air `.` above players, no solid blocks overhead) and direct platform footing (`=` or `#`) below. BFS flood-fill reachability guarantees zero players or flags trapped in enclosed cages. `LevelManager._get_walkable_platforms()` enforces `>=24px` clear vertical headroom during dynamic in-match respawns.
 - **Comprehensive Game Settings Customization (v1.1.0):** 8-option settings menu allowing players to toggle BGM music volume (Off / Low 35% / Normal 100%), SFX volume, customizable minimum stage duration (0s, 30s, 45s, 60s, 90s), round time limit (60s, 90s, 120s, 180s), bot opponent profiles (Mixed, All Aggressive, All Passive, All Standard), game speed multiplier (0.8x, 1.0x, 1.25x), and match rounds (1-10).
 - **CPU Bot Deliberation & Jump Cooldown:** Bot jump cooldown timer (`0.5s - 1.4s`) and widened horizontal steering deadzones eliminate frantic spasms and twitch jumping.
 - **Guaranteed Minimum Stage Duration:** Protects rounds from premature endings upon player elimination or early score milestones, fully customizable from 0s to 90s across all game modes.
 - **Dynamic Platform Respawns:** `LevelManager.get_distinct_platform_spawns()` randomly spreads characters across arena platforms at match/round start and upon player death respawns instead of predictable static slot coordinates.
-- **14 Arena Stages Grid:** All 14 stages cleanly selectable in a 2-column x 7-row interactive grid with arrow navigation.
 - **Multi-Round Flow & Scoring:** Cumulative player scores, kills, deaths, and rescues persist across rounds. Top HUD shows `RND X/Y`. Mid-match transition banners announce upcoming rounds.
-- **Headless Dedicated Server:** Standalone console server with interactive CLI shell (`status`, `players`, `kick`, `ban`, `mode`, `level`, `bot`, `say`, etc.) and live ping RTT latency calculation.
-- **Automated Tests:** 78/78 automated unit tests passing across 11 test suites.
+- **Headless Dedicated Server:** Standalone console server with interactive CLI shell (`status`, `players`, `kick`, `ban`, `mode`, `level`, `bot`, `say`, etc.) supporting level stages `1-28` and live ping RTT latency calculation.
+- **Automated Tests:** 85/85 automated unit tests passing across 12 test suites.
 - **Release Executable:** Pre-compiled standalone Windows binary updated in `./Releases/BubbleArena.exe`.
 
 ## Active Priorities

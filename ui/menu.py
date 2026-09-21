@@ -134,26 +134,38 @@ class MenuSystem:
         surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 16)))
 
     def draw_level_select(self, surface, level_manager, dt):
-        """Level selection screen browsing all 14 levels in a balanced 2-column grid."""
+        """Level selection screen browsing levels with 14 levels per page in a balanced 2-column grid."""
         self.anim_timer += dt
         surface.fill(COLOR_BLACK)
 
-        title = self.font_title.render("SELECT ARENA LEVEL", True, COLOR_GOLD)
-        surface.blit(title, title.get_rect(center=(VIRTUAL_WIDTH // 2, 22)))
-
         count = level_manager.get_level_count()
-        rows_per_col = (count + 1) // 2
-        start_y = 44
+        per_page = 14
+        total_pages = max(1, (count + per_page - 1) // per_page)
+        cur_page = min(total_pages - 1, max(0, self.selected_idx // per_page))
+
+        title = self.font_title.render("SELECT ARENA LEVEL", True, COLOR_GOLD)
+        surface.blit(title, title.get_rect(center=(VIRTUAL_WIDTH // 2, 16)))
+
+        page_info = f"< PAGE {cur_page + 1} / {total_pages} >"
+        page_surf = self.font_info.render(page_info, True, COLOR_CYAN)
+        surface.blit(page_surf, page_surf.get_rect(center=(VIRTUAL_WIDTH // 2, 31)))
+
+        start_y = 45
         card_w = VIRTUAL_WIDTH // 2 - 32
         card_h = 27
 
-        for i in range(count):
+        start_idx = cur_page * per_page
+        end_idx = min(count, start_idx + per_page)
+        rows_per_col = 7
+
+        for i in range(start_idx, end_idx):
             lvl = level_manager.levels[i]
             is_sel = (i == self.selected_idx)
             col = COLOR_GOLD if is_sel else COLOR_WHITE
 
-            col_idx = 0 if i < rows_per_col else 1
-            row_idx = i if col_idx == 0 else (i - rows_per_col)
+            local_i = i - start_idx
+            col_idx = 0 if local_i < rows_per_col else 1
+            row_idx = local_i if col_idx == 0 else (local_i - rows_per_col)
             col_x = 24 if col_idx == 0 else VIRTUAL_WIDTH // 2 + 8
             row_y = start_y + row_idx * 33
             card_rect = pygame.Rect(col_x, row_y, card_w, card_h)
@@ -164,7 +176,7 @@ class MenuSystem:
             lvl_surf = self.font_info.render(lvl["name"], True, col)
             surface.blit(lvl_surf, (card_rect.x + 8, card_rect.y + 7))
 
-        footer = self.font_info.render("[UP/DOWN/LEFT/RIGHT] Choose Level   [ENTER] Select   [ESC] Return", True, COLOR_GRAY)
+        footer = self.font_info.render("[ARROWS/WASD] Choose Level   [PGUP/PGDN] Page   [ENTER] Select   [ESC] Return", True, COLOR_GRAY)
         surface.blit(footer, footer.get_rect(center=(VIRTUAL_WIDTH // 2, VIRTUAL_HEIGHT - 14)))
 
     def draw_settings_screen(self, surface, speed_name, rounds_count, dt,
