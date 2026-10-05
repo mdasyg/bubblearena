@@ -232,8 +232,9 @@ class TestBubbleArena(unittest.TestCase):
         p0.is_grounded = True
         p0.vy = 0.0
         p0._update_rect()
-        p1.x = 120
+        p1.x = 85
         p1.y = 280
+        p1.facing = -1
         p1.is_grounded = True
         p1.vy = 0.0
         p1._update_rect()
@@ -247,7 +248,7 @@ class TestBubbleArena(unittest.TestCase):
         p0.handle_input({"shoot": True}, 0.016, engine.bubbles, engine.sound_mgr)
         self.assertGreater(len(engine.bubbles), 0)
         
-        # Engine updates -> Bubble travels and hits P1 -> creates TrappedBubble without error!
+        # Engine updates -> Bubble travels and hits P1 from front -> creates TrappedBubble!
         engine.update(0.20)
         self.assertGreater(len(engine.trapped_bubbles), 0)
         self.assertTrue(p1.is_trapped)
@@ -371,14 +372,15 @@ class TestBubbleArena(unittest.TestCase):
         self.assertEqual((0 + per_page) % 28, 14)
 
     def test_game_settings_speed_and_rounds_defaults(self):
-        """Verify default speed (1.0x Normal) and default rounds (4) in GameEngine."""
+        """Verify default speed (0.30x Normal) and default rounds (4) in GameEngine."""
         from engine.game import GameEngine
         from constants import SPEED_OPTIONS, DEFAULT_ROUNDS, SPEED_SLOWER, SPEED_NORMAL, SPEED_FASTER
         engine = GameEngine(is_bot_match=False)
         self.assertEqual(engine.total_rounds, 4)
         self.assertEqual(engine.total_rounds, DEFAULT_ROUNDS)
         self.assertEqual(engine.speed_idx, 1)
-        self.assertEqual(engine.game_speed_mult, 1.0)
+        self.assertEqual(engine.game_speed_mult, 0.30)
+        self.assertEqual(engine.game_speed_mult, SPEED_NORMAL)
         self.assertEqual(SPEED_OPTIONS[0][1], SPEED_SLOWER)
         self.assertEqual(SPEED_OPTIONS[1][1], SPEED_NORMAL)
         self.assertEqual(SPEED_OPTIONS[2][1], SPEED_FASTER)

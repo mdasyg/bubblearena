@@ -149,14 +149,15 @@ class Player:
             elif self.vx < 0:
                 self.vx = min(0.0, self.vx + fric * dt)
 
-        # Jump (immediate if grounded, otherwise buffered)
+        # Jump (immediate if grounded or on bubble, otherwise buffered)
         self.is_jump_held = bool(inputs.get("jump"))
         if inputs.get("jump"):
             self.jump_buffer_timer = 0.14
-            if self.is_grounded or self.coyote_timer > 0.0:
+            if self.is_grounded or self.coyote_timer > 0.0 or self.bubble_ride_timer > 0.0:
                 self.vy = PLAYER_JUMP_SPEED
                 self.is_grounded = False
                 self.coyote_timer = 0.0
+                self.bubble_ride_timer = 0.0
                 self.jump_buffer_timer = 0.0
                 if sound_mgr:
                     sound_mgr.play_sfx("jump")
@@ -318,12 +319,13 @@ class Player:
         # Players can bounce repeatedly on any bubble without it breaking, and climb vertical streams.
         all_floating_bubbles = [b for b in bubbles if b.is_alive and b.is_floating]
         for b in all_floating_bubbles:
-            # Check landing on top of bubble when descending or near jump apex
-            if self.vy >= -50.0 and prev_bottom <= b.rect.centery + 6 and self.rect.bottom >= b.rect.top - 3:
-                if abs(self.rect.centerx - b.rect.centerx) <= b.radius + 8:
+            # Landing or bouncing on top of any floating bubble:
+            # Check when descending or near apex (vy >= -60.0) and overlapping bubble top surface
+            if self.vy >= -60.0 and self.rect.bottom >= b.rect.top - 4 and self.rect.top < b.rect.bottom:
+                if abs(self.rect.centerx - b.rect.centerx) <= b.radius + 10:
                     self.rect.bottom = b.rect.top
                     self.y = self.rect.centery
-                    # Holding or pressing Jump applies a boosted super-bounce
+                    # Holding or pressing Jump applies a boosted super-bounce with zero jump limits
                     if self.jump_buffer_timer > 0.0 or getattr(self, "is_jump_held", False):
                         self.vy = BUBBLE_BOUNCE_SPEED * 1.15
                         self.jump_buffer_timer = 0.0
@@ -331,6 +333,7 @@ class Player:
                         self.vy = BUBBLE_BOUNCE_SPEED
                     self.is_grounded = False
                     self.bubble_ride_timer = 0.35
+                    self.coyote_timer = 0.12
                     if sound_mgr:
                         sound_mgr.play_sfx("bounce")
                     if particle_mgr:

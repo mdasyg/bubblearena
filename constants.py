@@ -18,7 +18,7 @@ VIRTUAL_WIDTH = 480
 VIRTUAL_HEIGHT = 320
 FPS = 60
 TITLE = "BUBBLE ARENA - 4P Retro Arcade Brawler"
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 
 # --- Physics Constants ---
 GRAVITY = 640.0             # pixels/sec^2
@@ -38,9 +38,10 @@ BUBBLE_FLOAT_SPEED = -35.0     # buoyant upward drift speed
 BUBBLE_SWAY_AMPLITUDE = 18.0   # left-right sine wave sway amplitude
 BUBBLE_SWAY_FREQUENCY = 2.0    # sway frequency (Hz)
 BUBBLE_LIFESPAN = 30.0         # 30 seconds lifetime before pop / explosion
-BUBBLE_TRAPPED_LIFESPAN = 30.0 # 30 seconds lifetime for trapped bubbles before pop/escape
+BUBBLE_TRAPPED_LIFESPAN = 16.0 # 16 seconds base lifetime for trapped bubbles before pop/escape
+BUBBLE_TRAPPED_MIN_TIME = 8.0  # guaranteed minimum trapped time of 8 seconds before pop
 BUBBLE_FLASH_TIME = 24.0       # time when bubble starts warning flash
-BUBBLE_TRAPPED_FLASH_TIME = 24.0 # time when trapped bubble starts warning flash
+BUBBLE_TRAPPED_FLASH_TIME = 12.0 # time when trapped bubble starts warning flash
 BUBBLE_RADIUS = 12             # standard bubble visual radius
 GIANT_BUBBLE_RADIUS = 24       # 2x size giant candy bubble radius (twice the size)
 GIANT_CANDY_DURATION = 30.0    # 30 seconds temporary giant bubble bonus
@@ -148,31 +149,31 @@ STATE_PLAYER_COUNT = 10
 STATE_SETTINGS = 11
 
 # --- Speed & Match Settings ---
-SPEED_SLOWER = 0.8
-SPEED_NORMAL = 1.0
-SPEED_FASTER = 1.25
+SPEED_SLOWER = 0.20
+SPEED_NORMAL = 0.30
+SPEED_FASTER = 0.50
+SPEED_MAX = 1.0
 SPEED_OPTIONS = [
-    ("Slower (0.8x)", SPEED_SLOWER),
-    ("Normal (1.0x)", SPEED_NORMAL),
-    ("Faster (1.25x)", SPEED_FASTER)
+    ("Slower (0.20x)", SPEED_SLOWER),
+    ("Normal (0.30x)", SPEED_NORMAL),
+    ("Faster (0.50x)", SPEED_FASTER),
+    ("Original (1.0x)", SPEED_MAX)
 ]
 DEFAULT_ROUNDS = 4
 
-# --- Audio Volume Settings ---
+# --- Audio Volume Settings (0% to 100% in 10% steps) ---
 VOLUME_OFF = 0.0
 VOLUME_LOW = 0.35
 VOLUME_NORMAL = 1.0
 
+VOLUME_LEVELS = [0.0, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 1.0]
+
 MUSIC_VOLUME_OPTIONS = [
-    ("Off", VOLUME_OFF),
-    ("Low (35%)", VOLUME_LOW),
-    ("Normal (100%)", VOLUME_NORMAL)
+    ("Off (0%)" if v == 0.0 else f"{int(round(v * 100))}%", v) for v in VOLUME_LEVELS
 ]
 
 SFX_VOLUME_OPTIONS = [
-    ("Off", VOLUME_OFF),
-    ("Low (35%)", VOLUME_LOW),
-    ("Normal (100%)", VOLUME_NORMAL)
+    ("Off (0%)" if v == 0.0 else f"{int(round(v * 100))}%", v) for v in VOLUME_LEVELS
 ]
 
 # --- Stage Duration & Timer Settings ---

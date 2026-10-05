@@ -12,7 +12,7 @@ from constants import (
     STATE_PLAYER_COUNT, STATE_SETTINGS, SPEED_OPTIONS, DEFAULT_ROUNDS, BOT_PERSONALITIES,
     MUSIC_VOLUME_OPTIONS, SFX_VOLUME_OPTIONS, MIN_DURATION_OPTIONS, ROUND_TIMER_OPTIONS, BOT_PREFERENCE_OPTIONS,
     MODE_FFA, MODE_TEAM, MODE_CTF, GAME_MODES, PLAYER_COLORS,
-    COLOR_GOLD, COLOR_RED, COLOR_GREEN, DEFAULT_PORT, BUBBLE_BOUNCE_SPEED
+    COLOR_GOLD, COLOR_RED, COLOR_GREEN, COLOR_CYAN, DEFAULT_PORT, BUBBLE_BOUNCE_SPEED
 )
 from engine.sound import SoundManager
 from engine.sprites import SpriteManager
@@ -80,16 +80,17 @@ class GameEngine:
         self.is_bot_match = is_bot_match
 
         # Speed & Multi-Round Match Settings
-        self.speed_idx = 1  # Default Normal (1.0x)
-        self.game_speed_mult = 1.0
+        self.speed_idx = 1  # Default Normal (0.30x)
+        self.game_speed_mult = SPEED_OPTIONS[self.speed_idx][1]
         self.total_rounds = DEFAULT_ROUNDS  # Default 4 rounds
         self.current_round = 1
         self.round_transition_timer = 0.0
         self.round_transition_text = ""
+        self.player_prev_struggle = {}
 
         # Audio & Game Customization Settings
-        self.music_vol_idx = 2  # Default Normal (100%)
-        self.sfx_vol_idx = 2    # Default Normal (100%)
+        self.music_vol_idx = len(MUSIC_VOLUME_OPTIONS) - 1  # Default Normal (100%)
+        self.sfx_vol_idx = len(SFX_VOLUME_OPTIONS) - 1      # Default Normal (100%)
         self.min_duration_idx = 2  # Default 45s
         self.min_round_duration = 45.0
         self.round_timer_idx = 1  # Default 90s
@@ -796,14 +797,29 @@ class GameEngine:
                 # Clear bot actions when trapped
                 if p.is_bot:
                     p.bot_action = {}
-                # Check struggle inputs (cosmetic struggle wobble)
-                actions = self.input_handler.poll_inputs(p.id, is_bot=p.is_bot, bot_action=p.bot_action)
-                if actions.get("shoot") or actions.get("struggle") or actions.get("jump"):
-                    # Find player's trapped bubble
-                    for tb in self.trapped_bubbles:
-                        if tb.trapped_player.id == p.id:
-                            tb.register_struggle()
-                            break
+                    # Bots struggle with 50% chance each update step
+                    if random.random() < 0.5:
+                        for tb in self.trapped_bubbles:
+                            if tb.trapped_player.id == p.id:
+                                tb.register_struggle()
+                                break
+                else:
+                    # Human input: movement keys, jump, shoot/action, struggle
+                    actions = self.input_handler.poll_inputs(p.id)
+                    curr_struggle_keys = set(
+                        k for k in ("left", "right", "up", "down", "jump", "shoot", "action", "struggle")
+                        if actions.get(k)
+                    )
+                    prev_struggle_keys = self.player_prev_struggle.get(p.id, set())
+                    new_presses = curr_struggle_keys - prev_struggle_keys
+                    self.player_prev_struggle[p.id] = curr_struggle_keys
+
+                    # Register struggle on new button presses or active holding
+                    if new_presses or (curr_struggle_keys and random.random() < 0.25):
+                        for tb in self.trapped_bubbles:
+                            if tb.trapped_player.id == p.id:
+                                tb.register_struggle()
+                                break
             else:
                 # Bot AI or Human Input
                 if p.is_bot:
@@ -834,28 +850,45 @@ class GameEngine:
                 bubbles_to_pop.append((b, None))
                 continue
 
-            # Empty floating bubbles do NOT pop when jumped on; they serve as bouncy trampolines.
-
-            # Check collision with other players to trap them
+            # Requirement 1: bubbles trap other players ONLY when fired horizontally (not b.is_floating).
+            # Once they start going up (b.is_floating == True), they do not trap anyone.
             trapped_someone = False
-            for target_p in self.players:
-                if target_p.id != b.owner_id and target_p.is_alive and not target_p.is_trapped and target_p.invulnerable_timer <= 0:
-                    # In team mode, only trap enemies
-                    is_enemy = (self.current_mode_name == MODE_FFA) or (target_p.team != b.owner_team)
-                    if is_enemy and b.rect.colliderect(target_p.rect):
-                        # TRAP THE PLAYER!
-                        target_p.bot_action = {}
-                        target_p.vx = 0.0
-                        target_p.vy = 0.0
-                        tb = TrappedBubble(target_p, b.owner_id, b.owner_team)
-                        self.trapped_bubbles.append(tb)
-                        self.particle_mgr.spawn_sparkles(target_p.x, target_p.y, count=10)
-                        self.particle_mgr.add_floating_text("TRAPPED!", target_p.x, target_p.y - 12)
-                        self.sound_mgr.play_sfx("trap")
-                        trapped_someone = True
-                        break
+            popped_by_shield = False
 
-            if not trapped_someone and b not in [bp[0] for bp in bubbles_to_pop]:
+            if not b.is_floating:
+                # Horizontal shot phase: check collision with target players
+                for target_p in self.players:
+                    if target_p.id != b.owner_id and target_p.is_alive and not target_p.is_trapped and target_p.invulnerable_timer <= 0:
+                        # In team mode, only trap enemies
+                        is_enemy = (self.current_mode_name == MODE_FFA) or (target_p.team != b.owner_team)
+                        if is_enemy and b.rect.colliderect(target_p.rect):
+                            # Requirement 3: If target has back towards the bubble/other player, the back is a shield!
+                            # Bubble direction is 1 (Right) or -1 (Left). Target facing is 1 (Right) or -1 (Left).
+                            # If target_p.facing == b.direction, the bubble hits target's back!
+                            if target_p.facing == b.direction:
+                                # Back shield: pop the bubble, target is NOT trapped!
+                                popped_by_shield = True
+                                b.is_alive = False
+                                bubbles_to_pop.append((b, None))
+                                self.particle_mgr.spawn_pop_burst(b.x, b.y, count=10)
+                                self.particle_mgr.add_floating_text("SHIELD!", target_p.x, target_p.y - 12, color=COLOR_CYAN)
+                                self.sound_mgr.play_sfx("pop")
+                                break
+                            else:
+                                # Front hit: TRAP THE PLAYER!
+                                b.is_alive = False
+                                target_p.bot_action = {}
+                                target_p.vx = 0.0
+                                target_p.vy = 0.0
+                                tb = TrappedBubble(target_p, b.owner_id, b.owner_team)
+                                self.trapped_bubbles.append(tb)
+                                self.particle_mgr.spawn_sparkles(target_p.x, target_p.y, count=10)
+                                self.particle_mgr.add_floating_text("TRAPPED!", target_p.x, target_p.y - 12)
+                                self.sound_mgr.play_sfx("trap")
+                                trapped_someone = True
+                                break
+
+            if not trapped_someone and not popped_by_shield and b not in [bp[0] for bp in bubbles_to_pop]:
                 active_bubbles.append(b)
 
         self.bubbles = active_bubbles

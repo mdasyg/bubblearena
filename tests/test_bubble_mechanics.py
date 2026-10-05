@@ -182,5 +182,139 @@ class TestBubbleMechanics(unittest.TestCase):
         self.assertTrue(tb.is_alive, "Trapped bubble must remain alive in GameEngine update loop")
         self.assertIn(tb, engine.trapped_bubbles)
 
+    def test_floating_bubble_never_traps_players(self):
+        """Floating bubbles (Phase 2, moving upwards) never trap players upon collision."""
+        engine = GameEngine(is_bot_match=False)
+        engine.start_match(use_random_map=False)
+        p0 = engine.players[0]
+        p1 = engine.players[1]
+        p0.x, p0.y = 100, 100
+        p1.x, p1.y = 100, 100
+        p0._update_rect()
+        p1._update_rect()
+
+        # Create a floating bubble at p1's position
+        b = Bubble(x=100, y=100, direction=1, owner_id=p0.id, owner_team=p0.team)
+        b.is_floating = True  # Phase 2: buoyant upward drift
+        engine.bubbles.append(b)
+
+        # Update engine
+        engine.update(0.016)
+
+        # p1 MUST NOT be trapped by floating bubble
+        self.assertFalse(p1.is_trapped, "Floating bubbles must never trap players")
+        self.assertEqual(len(engine.trapped_bubbles), 0)
+
+    def test_back_shield_pops_bubble_without_trapping(self):
+        """When an incoming horizontal bubble hits a player's back, the bubble pops and the player is shielded."""
+        engine = GameEngine(is_bot_match=False)
+        engine.start_match(use_random_map=False)
+        p0 = engine.players[0]
+        p1 = engine.players[1]
+        p0.invulnerable_timer = 0.0
+        p1.invulnerable_timer = 0.0
+
+        # p1 is facing Right (+1)
+        p1.facing = 1
+        p1.x, p1.y = 150, 100
+        p1._update_rect()
+
+        # p0 fires a bubble towards the Right (+1), approaching p1 from behind
+        b = Bubble(x=145, y=100, direction=1, owner_id=p0.id, owner_team=p0.team)
+        b.is_floating = False  # Phase 1: horizontal burst
+        engine.bubbles.append(b)
+
+        engine.update(0.016)
+
+        # The bubble should have popped upon hitting p1's back shield!
+        self.assertFalse(p1.is_trapped, "Player back shield should protect from entrapment")
+        self.assertEqual(len(engine.trapped_bubbles), 0)
+        self.assertFalse(b.is_alive, "Bubble must pop upon hitting the player's back shield")
+
+    def test_front_hit_traps_player(self):
+        """When an incoming horizontal bubble hits a player from the front, the player gets trapped."""
+        engine = GameEngine(is_bot_match=False)
+        engine.start_match(use_random_map=False)
+        p0 = engine.players[0]
+        p1 = engine.players[1]
+        p0.invulnerable_timer = 0.0
+        p1.invulnerable_timer = 0.0
+
+        # p1 is facing Left (-1), directly facing the incoming bubble from p0
+        p1.facing = -1
+        p1.x, p1.y = 150, 100
+        p1._update_rect()
+
+        # p0 fires a bubble towards the Right (+1)
+        b = Bubble(x=145, y=100, direction=1, owner_id=p0.id, owner_team=p0.team)
+        b.is_floating = False
+        engine.bubbles.append(b)
+
+        engine.update(0.016)
+
+        # p1 should now be trapped!
+        self.assertTrue(p1.is_trapped, "Player hit from front should be trapped")
+        self.assertEqual(len(engine.trapped_bubbles), 1)
+
+    def test_trapped_bubble_struggle_timing(self):
+        """Struggling speeds up popping up to 50% (min 8s), while inactive trapped bubble lasts 16s."""
+        # 1. Active struggle case
+        p_active = Player(player_id=0, spawn_x=100, spawn_y=100)
+        tb_active = TrappedBubble(p_active, captor_id=1, captor_team=1)
+
+        # Simulate 7.5 seconds with heavy mashing
+        for sec in range(75):
+            for _ in range(5):
+                tb_active.register_struggle()
+            tb_active.update(0.1, [])
+
+        # At 7.5 seconds (< 8.0s min), player must STILL be trapped despite heavy mashing!
+        self.assertTrue(p_active.is_trapped, "Bubble cannot pop before 8s minimum duration")
+        self.assertTrue(tb_active.is_alive)
+
+        # Advance past 8.0 seconds (e.g. 8.1s)
+        for _ in range(6):
+            tb_active.register_struggle()
+            tb_active.update(0.1, [])
+
+        # At 8.1s with heavy mashing, bubble should pop and free the player!
+        self.assertFalse(tb_active.is_alive, "Bubble should pop after 8s of active struggle")
+        self.assertFalse(p_active.is_trapped, "Player should be freed after 8s of struggle")
+
+        # 2. Inactive case (no struggle)
+        p_passive = Player(player_id=1, spawn_x=100, spawn_y=100)
+        tb_passive = TrappedBubble(p_passive, captor_id=0, captor_team=0)
+
+        # Update without struggle for 10 seconds
+        for _ in range(100):
+            tb_passive.update(0.1, [])
+
+        # At 10 seconds without struggle, still trapped!
+        self.assertTrue(p_passive.is_trapped, "Passive player remains trapped past 10 seconds")
+        self.assertTrue(tb_passive.is_alive)
+
+        # Advance to 16.5 seconds
+        for _ in range(65):
+            tb_passive.update(0.1, [])
+
+        # At 16.5 seconds, naturally expires and frees player
+        self.assertFalse(tb_passive.is_alive, "Bubble naturally pops after 16s")
+        self.assertFalse(p_passive.is_trapped, "Player naturally freed after 16s")
+
+    def test_continuous_unlimited_bubble_jumping(self):
+        """Player can bounce repeatedly 20+ times on floating bubbles without any jump limit."""
+        p = Player(player_id=0, spawn_x=100, spawn_y=90)
+        b = Bubble(x=100, y=110, direction=1, owner_id=0, owner_team=0)
+        b.is_floating = True
+
+        # Perform 20 consecutive bounces
+        for i in range(20):
+            p.vy = 80.0
+            p.rect.bottom = b.rect.top - 1
+            p.is_jump_held = True
+            p.update(0.016, [], [b], [])
+            self.assertLess(p.vy, 0.0, f"Bounce {i+1} must propel player upward")
+            self.assertTrue(b.is_alive, f"Bubble must stay intact after bounce {i+1}")
+
 if __name__ == "__main__":
     unittest.main()

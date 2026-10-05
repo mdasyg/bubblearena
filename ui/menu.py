@@ -194,11 +194,25 @@ class MenuSystem:
         sub = self.font_info.render("AUDIO, PACING, DURATION & MATCH CUSTOMIZATION", True, COLOR_CYAN)
         surface.blit(sub, sub.get_rect(center=(VIRTUAL_WIDTH // 2, 32)))
 
+        # Format visual slider gauge for music and SFX volumes
+        def _slider_str(val_str):
+            try:
+                digits = "".join(ch for ch in str(val_str) if ch.isdigit())
+                pct = int(digits) if digits else 0
+            except Exception:
+                pct = 0
+            blocks = max(0, min(10, int(round(pct / 10))))
+            bar = "■" * blocks + "─" * (10 - blocks)
+            return f"< [{bar}] {val_str} >"
+
+        music_display = _slider_str(music_vol_name)
+        sfx_display = _slider_str(sfx_vol_name)
+
         options = [
-            ("GAME SPEED", f"< {speed_name} >", "Adjust physics, movement, and projectile pacing"),
+            ("GAME SPEED", f"< {speed_name} >", "Adjust physics, movement, and projectile pacing (Default 0.30x)"),
             ("MATCH ROUNDS", f"< {rounds_count} Rounds >", "Total rounds played before calculating tournament champion"),
-            ("MUSIC VOLUME", f"< {music_vol_name} >", "Turn off music or select low (35%) or normal volume"),
-            ("SFX VOLUME", f"< {sfx_vol_name} >", "Adjust sound effects volume for bubble shoots, pops, and jumps"),
+            ("MUSIC VOLUME", music_display, "Adjust music volume level slider in 10% steps (0% to 100%)"),
+            ("SFX VOLUME", sfx_display, "Adjust sound effects volume slider in 10% steps (0% to 100%)"),
             ("MIN STAGE TIME", f"< {min_duration_name} >", "Guaranteed minimum stage time before an early score win"),
             ("ROUND TIME LIMIT", f"< {round_timer_name} >", "Countdown match duration timer for each arena round"),
             ("BOT PERSONALITIES", f"< {bot_pref_name} >", "Configure CPU bot behavior archetypes or keep randomized"),

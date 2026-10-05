@@ -6,7 +6,8 @@ import math
 import random
 from constants import (
     BUBBLE_FLOAT_SPEED, BUBBLE_SWAY_AMPLITUDE, BUBBLE_SWAY_FREQUENCY,
-    BUBBLE_TRAPPED_LIFESPAN, BUBBLE_TRAPPED_FLASH_TIME, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, STRUGGLE_ESCAPE_PRESSES
+    BUBBLE_TRAPPED_LIFESPAN, BUBBLE_TRAPPED_MIN_TIME, BUBBLE_TRAPPED_FLASH_TIME,
+    VIRTUAL_WIDTH, VIRTUAL_HEIGHT, STRUGGLE_ESCAPE_PRESSES
 )
 
 class TrappedBubble:
@@ -22,8 +23,10 @@ class TrappedBubble:
         self.radius = 14
         self.rect = pygame.Rect(int(self.x - self.radius), int(self.y - self.radius), self.radius * 2, self.radius * 2)
 
-        self.lifespan = BUBBLE_TRAPPED_LIFESPAN  # 18.0 seconds
-        self.age = 0.0
+        self.lifespan = BUBBLE_TRAPPED_LIFESPAN  # 16.0 seconds base
+        self.min_trapped_time = BUBBLE_TRAPPED_MIN_TIME  # 8.0 seconds minimum
+        self.age = 0.0        # accelerated age from struggling
+        self.real_time = 0.0  # actual in-game seconds elapsed while trapped
         self.sway_phase = random.uniform(0, 2 * math.pi)
         self.is_alive = True
         self.struggle_count = 0
@@ -38,23 +41,31 @@ class TrappedBubble:
             self.trapped_player.bot_action = {}
 
     def register_struggle(self):
-        """Called when trapped player mashes action buttons (cosmetic struggle wobble)."""
+        """Called when trapped player presses movement keys, jump, or fire to struggle."""
         self.struggle_count += 1
-        self.sway_phase += 0.25  # Visual wiggle wobble, but never self-breaks
+        self.sway_phase += 0.35  # Visual wiggle wobble
+        # Accelerates effective age by 0.35s per active struggle press
+        self.age += 0.35
 
     def update(self, dt, platforms):
-        """Floats upward, checks 30s expiration."""
+        """Floats upward, checks expiration with 50% max speedup and 8s minimum duration."""
+        self.real_time += dt
         self.age += dt
         self.anim_timer += dt
         if self.anim_timer >= 0.12:
             self.anim_timer = 0.0
             self.anim_frame = (self.anim_frame + 1) % 4
 
-        # Only expires naturally after full lifespan (cannot be broken by trapped player)
+        # Speed up popping by up to 50% of the time, with minimum trapped time of 8 seconds
+        min_allowed_time = max(self.min_trapped_time, self.lifespan * 0.5)
         if self.age >= self.lifespan:
-            self.is_alive = False
-            self.trapped_player.free_from_bubble(was_rescued=False)
-            return False
+            if self.real_time >= min_allowed_time:
+                self.is_alive = False
+                self.trapped_player.free_from_bubble(was_rescued=False)
+                return False
+            else:
+                # Cap age at lifespan until min_allowed_time has elapsed
+                self.age = self.lifespan
 
         # Upward float with sway
         self.y += BUBBLE_FLOAT_SPEED * dt
@@ -94,7 +105,7 @@ class TrappedBubble:
 
     def is_warning_flash(self):
         """Flashes when close to popping/expiring."""
-        return (self.age >= BUBBLE_TRAPPED_FLASH_TIME) and ((int(self.age * 10) % 2) == 0)
+        return (self.age >= (self.lifespan - 4.0) or self.age >= BUBBLE_TRAPPED_FLASH_TIME) and ((int(self.age * 10) % 2) == 0)
 
     def check_pop_by_player(self, popping_player, is_team_mode=False, force_pop=False):
         """
